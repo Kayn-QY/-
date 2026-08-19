@@ -225,6 +225,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
 <!-- PAGE_JS 模板：与 render_web.py 的 PAGE_JS 逐字节一致，由生成脚本注入 -->
 <script type="text/plain" id="page-js-template">
 
+
 "use strict";
 var WEEKDAYS_JS = ["周一","周二","周三","周四","周五","周六","周日"];
 var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"],["tech","技术"],["ad","投流"]];
@@ -285,7 +286,7 @@ function buildRoomTable(room){
 function buildTabs(){
   return ROOMS.map(function(r, i){
     return '<button class="sheet-tab' + (i === 0 ? " active" : "") + '" data-room="' + esc(r) + '">' + esc(r) + '</button>';
-  }).join("") + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>';
+  }).join("");
 }
 
 function buildStats(room){
@@ -302,24 +303,62 @@ function buildStats(room){
   return arr.join("") || '<span class="chip">暂无数据</span>';
 }
 
+function pad2(n){ return n < 10 ? "0" + n : String(n); }
+function bjNow(){
+  var n = new Date();
+  return new Date(n.getTime() + (n.getTimezoneOffset() + 480) * 60000);
+}
+function clockMin(t){
+  var m = String(t).match(/^(\d{1,2}):(\d{2})/);
+  return m ? (+m[1]) * 60 + (+m[2]) : -1;
+}
+/* 未来最近一场：当天无剩余场次自动取之后最近一天首场 */
+function nextRemind(room){
+  var data = SCHEDULE[room] || {};
+  var now = bjNow();
+  var best = null;
+  var dates = Object.keys(data).sort();
+  for (var i = 0; i < dates.length; i++){
+    var d = dates[i];
+    var day = data[d];
+    if (!day || typeof day !== "object") continue;
+    for (var j = 0; j < SLOT_ORDER_JS.length; j++){
+      var slot = SLOT_ORDER_JS[j];
+      var info = day[slot] || {};
+      var mm = clockMin(info.time);
+      if (mm < 0) continue;
+      var start = new Date(+d.slice(0,4), +d.slice(5,7) - 1, +d.slice(8,10), Math.floor(mm / 60), mm % 60);
+      if (start <= now) continue;
+      if (!best || start < best.start) best = { start: start, slot: slot, anchor: (info.anchor || "").trim() };
+    }
+  }
+  return best;
+}
 function buildRemind(){
   var items = [];
   ROOMS.forEach(function(room){
-    var data = SCHEDULE[room] || {};
-    var dates = Object.keys(data).sort();
-    if (!dates.length) return;
-    var d = dates[dates.length - 1];
-    SLOT_ORDER_JS.forEach(function(slot){
-      var info = (data[d] && data[d][slot]) || {};
-      var t = (info.time || "").trim();
-      var a = (info.anchor || "").trim();
-      if (t && a) items.push([room, d, t, a, slot]);
-    });
+    var b = nextRemind(room);
+    if (!b){
+      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-name off">暂无排班</span></div>');
+      return;
+    }
+    var st = pad2(b.start.getHours()) + ":" + pad2(b.start.getMinutes());
+    if (b.anchor){
+      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-slot">' + st + '</span><span class="remind-name">' + esc(b.anchor) + ' 开播</span></div>');
+    } else {
+      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-slot">' + st + '</span><span class="remind-name off">无人播</span></div>');
+    }
   });
   if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
-  return items.map(function(it){
-    return '<div class="remind-item"><span class="remind-time">' + esc(it[0]) + ' · ' + esc(it[2]) + '</span><span><span class="remind-slot">' + esc(it[4]) + '</span> · <span class="remind-name">' + esc(it[3]) + '</span></span></div>';
-  }).join("");
+  return '<div class="remind-list">' + items.join("") + '</div>';
+}
+function updateRemind(){
+  var el = document.getElementById("reminder");
+  if (!el) return;
+  var list = el.querySelector(".remind-list");
+  var html = buildRemind();
+  if (list) list.outerHTML = html;
+  else el.insertAdjacentHTML("beforeend", html);
 }
 
 function renderHtml(updatedAt){
@@ -417,9 +456,9 @@ function initRoomPage(){
   document.addEventListener("click", function(e){
     var tab = e.target.closest(".sheet-tab");
     if (tab) { switchRoom(tab.dataset.room); return; }
-    var add = e.target.closest("#btn-add-room");
-    if (add) { addRoom(); return; }
   });
+  updateRemind();
+  setInterval(updateRemind, 30000);
 }
 initRoomPage();
 
@@ -604,7 +643,6 @@ function shiftWeek(days){
 
 // ---------- 渲染 HTML（与 render_web.py 视觉一致，毛玻璃 3D 版；CSS 由生成脚本注入） ----------
 const CSS_VIEW = `
-
 :root{
   --ink-deep: #0a1b33;
   --ink-2: #1e3a5f;
@@ -719,6 +757,16 @@ body{
 .chip:hover{transform:translateY(-1px)}
 /* 表格 */
 .table-scroll{overflow-x:auto;border-radius:16px}
+/* 冻结「场次」「角色」两列：横向滚动时始终可见 */
+.col-slot, .col-role, .slot-col, .role-col{
+  position:sticky;z-index:2;background:rgba(250,252,255,.94);
+  box-shadow:1px 0 0 rgba(15,30,61,.14);
+}
+.col-slot, .slot-col{left:0;z-index:3}
+.col-role{left:90px;z-index:5}
+.role-col{left:90px;z-index:3}
+thead th.col-slot, thead th.col-role{background:rgba(246,249,255,.97);z-index:6}
+tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(250,252,255,.96)}
 table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
@@ -757,8 +805,9 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   padding:12px 14px;font-size:13px;color:#334155;box-shadow:inset 0 1px 0 #fff;display:flex;align-items:center;gap:10px;
 }
 .remind-time{font-weight:600;color:#0a1b33;white-space:nowrap}
-.remind-slot{color:var(--text-muted)}
+.remind-slot{color:var(--text-muted);white-space:nowrap}
 .remind-name{color:var(--clay);font-weight:600}
+.remind-name.off{color:var(--text-muted);font-weight:500}
 .remind-empty{
   margin-top:12px;background:rgba(255,255,255,.4);border:1px dashed rgba(255,255,255,.7);border-radius:16px;
   padding:18px;font-size:13px;color:var(--text-muted);text-align:center;
@@ -786,12 +835,6 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent;
   box-shadow:0 8px 18px rgba(10,27,51,.35);
 }
-.sheet-add{
-  display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;
-  border:1px dashed rgba(144,88,49,.6);background:rgba(255,255,255,.35);color:var(--clay);
-  border-radius:12px;font-size:18px;line-height:1;cursor:pointer;transition:all .2s;font-family:var(--font-sans);
-}
-.sheet-add:hover{background:rgba(144,88,49,.18);border-style:solid}
 /* 直播间独立表格 */
 .room-table{display:none}
 .room-table.active{display:block;animation:rise .4s cubic-bezier(.16,1,.3,1) both}
@@ -809,7 +852,6 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .head-right{justify-content:flex-start;width:100%}
   .sheet-bar{max-width:100%}
 }
-
 `;
 
 function buildStatsHtml(room){
@@ -826,24 +868,50 @@ function buildStatsHtml(room){
   return arr.join("") || '<span class="chip">暂无数据</span>';
 }
 
+function bjNow(){
+  const n = new Date();
+  return new Date(n.getTime() + (n.getTimezoneOffset() + 480) * 60000);
+}
+function clockMin(t){
+  const m = String(t).match(/^(\d{1,2}):(\d{2})/);
+  return m ? (+m[1]) * 60 + (+m[2]) : -1;
+}
+/* 未来最近一场：当天无剩余场次自动取之后最近一天首场（与 render_web.py PAGE_JS nextRemind 一致） */
+function nextRemindFor(room){
+  const data = schedule[room] || {};
+  const now = bjNow();
+  let best = null;
+  Object.keys(data).sort().forEach(d => {
+    const day = data[d];
+    if (!day || typeof day !== "object") return;
+    SLOT_ORDER.forEach(slot => {
+      const info = day[slot] || {};
+      const mm = clockMin(info.time);
+      if (mm < 0) return;
+      const start = new Date(+d.slice(0,4), +d.slice(5,7) - 1, +d.slice(8,10), Math.floor(mm / 60), mm % 60);
+      if (start <= now) return;
+      if (!best || start < best.start) best = { start, anchor: (info.anchor || "").trim() };
+    });
+  });
+  return best;
+}
 function buildRemindHtml(){
   const items = [];
   rooms.forEach(room => {
-    const data = schedule[room] || {};
-    const dates = Object.keys(data).sort();
-    if (!dates.length) return;
-    const d = dates[dates.length - 1];
-    SLOT_ORDER.forEach(slot => {
-      const info = (data[d] && data[d][slot]) || {};
-      const t = (info.time || "").trim();
-      const a = (info.anchor || "").trim();
-      if (t && a) items.push([room, d, t, a, slot]);
-    });
+    const b = nextRemindFor(room);
+    if (!b) {
+      items.push(`<div class="remind-item"><span class="remind-time">${escapeHtml(room)}</span><span class="remind-name off">暂无排班</span></div>`);
+      return;
+    }
+    const st = `${String(b.start.getHours()).padStart(2,"0")}:${String(b.start.getMinutes()).padStart(2,"0")}`;
+    if (b.anchor) {
+      items.push(`<div class="remind-item"><span class="remind-time">${escapeHtml(room)}</span><span class="remind-slot">${st}</span><span class="remind-name">${escapeHtml(b.anchor)} 开播</span></div>`);
+    } else {
+      items.push(`<div class="remind-item"><span class="remind-time">${escapeHtml(room)}</span><span class="remind-slot">${st}</span><span class="remind-name off">无人播</span></div>`);
+    }
   });
   if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
-  return items.map(it =>
-    `<div class="remind-item"><span class="remind-time">${escapeHtml(it[0])} · ${escapeHtml(it[2])}</span><span><span class="remind-slot">${escapeHtml(it[4])}</span> · <span class="remind-name">${escapeHtml(it[3])}</span></span></div>`
-  ).join("");
+  return `<div class="remind-list">${items.join("")}</div>`;
 }
 
 function buildRoomTableHtml(room){
@@ -881,7 +949,7 @@ function renderHtml(updatedAt){
   const roomTables = rooms.map(buildRoomTableHtml).join("");
   const tabs = rooms.map((r, i) =>
     `<button class="sheet-tab${i === 0 ? " active" : ""}" data-room="${escapeHtml(r)}">${escapeHtml(r)}</button>`
-  ).join("") + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>';
+  ).join("");
   const statsAll = rooms.map((r, i) =>
     `<div class="stats" data-stats-for="${escapeHtml(r)}"${i === 0 ? "" : ' style="display:none"'} data-room-stats="${escapeHtml(r)}">${buildStatsHtml(r)}</div>`
   ).join("");

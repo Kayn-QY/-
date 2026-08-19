@@ -8,6 +8,7 @@
 """
 import json
 import os
+import re
 from collections import Counter
 from datetime import datetime, timedelta
 
@@ -144,6 +145,16 @@ body{
 .chip:hover{transform:translateY(-1px)}
 /* 表格 */
 .table-scroll{overflow-x:auto;border-radius:16px}
+/* 冻结「场次」「角色」两列：横向滚动时始终可见 */
+.col-slot, .col-role, .slot-col, .role-col{
+  position:sticky;z-index:2;background:rgba(250,252,255,.94);
+  box-shadow:1px 0 0 rgba(15,30,61,.14);
+}
+.col-slot, .slot-col{left:0;z-index:3}
+.col-role{left:90px;z-index:5}
+.role-col{left:90px;z-index:3}
+thead th.col-slot, thead th.col-role{background:rgba(246,249,255,.97);z-index:6}
+tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(250,252,255,.96)}
 table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
@@ -182,8 +193,9 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   padding:12px 14px;font-size:13px;color:#334155;box-shadow:inset 0 1px 0 #fff;display:flex;align-items:center;gap:10px;
 }
 .remind-time{font-weight:600;color:#0a1b33;white-space:nowrap}
-.remind-slot{color:var(--text-muted)}
+.remind-slot{color:var(--text-muted);white-space:nowrap}
 .remind-name{color:var(--clay);font-weight:600}
+.remind-name.off{color:var(--text-muted);font-weight:500}
 .remind-empty{
   margin-top:12px;background:rgba(255,255,255,.4);border:1px dashed rgba(255,255,255,.7);border-radius:16px;
   padding:18px;font-size:13px;color:var(--text-muted);text-align:center;
@@ -211,12 +223,6 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent;
   box-shadow:0 8px 18px rgba(10,27,51,.35);
 }
-.sheet-add{
-  display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;
-  border:1px dashed rgba(144,88,49,.6);background:rgba(255,255,255,.35);color:var(--clay);
-  border-radius:12px;font-size:18px;line-height:1;cursor:pointer;transition:all .2s;font-family:var(--font-sans);
-}
-.sheet-add:hover{background:rgba(144,88,49,.18);border-style:solid}
 /* 直播间独立表格 */
 .room-table{display:none}
 .room-table.active{display:block;animation:rise .4s cubic-bezier(.16,1,.3,1) both}
@@ -298,7 +304,7 @@ function buildRoomTable(room){
 function buildTabs(){
   return ROOMS.map(function(r, i){
     return '<button class="sheet-tab' + (i === 0 ? " active" : "") + '" data-room="' + esc(r) + '">' + esc(r) + '</button>';
-  }).join("") + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>';
+  }).join("");
 }
 
 function buildStats(room){
@@ -315,24 +321,62 @@ function buildStats(room){
   return arr.join("") || '<span class="chip">暂无数据</span>';
 }
 
+function pad2(n){ return n < 10 ? "0" + n : String(n); }
+function bjNow(){
+  var n = new Date();
+  return new Date(n.getTime() + (n.getTimezoneOffset() + 480) * 60000);
+}
+function clockMin(t){
+  var m = String(t).match(/^(\d{1,2}):(\d{2})/);
+  return m ? (+m[1]) * 60 + (+m[2]) : -1;
+}
+/* 未来最近一场：当天无剩余场次自动取之后最近一天首场 */
+function nextRemind(room){
+  var data = SCHEDULE[room] || {};
+  var now = bjNow();
+  var best = null;
+  var dates = Object.keys(data).sort();
+  for (var i = 0; i < dates.length; i++){
+    var d = dates[i];
+    var day = data[d];
+    if (!day || typeof day !== "object") continue;
+    for (var j = 0; j < SLOT_ORDER_JS.length; j++){
+      var slot = SLOT_ORDER_JS[j];
+      var info = day[slot] || {};
+      var mm = clockMin(info.time);
+      if (mm < 0) continue;
+      var start = new Date(+d.slice(0,4), +d.slice(5,7) - 1, +d.slice(8,10), Math.floor(mm / 60), mm % 60);
+      if (start <= now) continue;
+      if (!best || start < best.start) best = { start: start, slot: slot, anchor: (info.anchor || "").trim() };
+    }
+  }
+  return best;
+}
 function buildRemind(){
   var items = [];
   ROOMS.forEach(function(room){
-    var data = SCHEDULE[room] || {};
-    var dates = Object.keys(data).sort();
-    if (!dates.length) return;
-    var d = dates[dates.length - 1];
-    SLOT_ORDER_JS.forEach(function(slot){
-      var info = (data[d] && data[d][slot]) || {};
-      var t = (info.time || "").trim();
-      var a = (info.anchor || "").trim();
-      if (t && a) items.push([room, d, t, a, slot]);
-    });
+    var b = nextRemind(room);
+    if (!b){
+      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-name off">暂无排班</span></div>');
+      return;
+    }
+    var st = pad2(b.start.getHours()) + ":" + pad2(b.start.getMinutes());
+    if (b.anchor){
+      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-slot">' + st + '</span><span class="remind-name">' + esc(b.anchor) + ' 开播</span></div>');
+    } else {
+      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-slot">' + st + '</span><span class="remind-name off">无人播</span></div>');
+    }
   });
   if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
-  return items.map(function(it){
-    return '<div class="remind-item"><span class="remind-time">' + esc(it[0]) + ' · ' + esc(it[2]) + '</span><span><span class="remind-slot">' + esc(it[4]) + '</span> · <span class="remind-name">' + esc(it[3]) + '</span></span></div>';
-  }).join("");
+  return '<div class="remind-list">' + items.join("") + '</div>';
+}
+function updateRemind(){
+  var el = document.getElementById("reminder");
+  if (!el) return;
+  var list = el.querySelector(".remind-list");
+  var html = buildRemind();
+  if (list) list.outerHTML = html;
+  else el.insertAdjacentHTML("beforeend", html);
 }
 
 function renderHtml(updatedAt){
@@ -430,9 +474,9 @@ function initRoomPage(){
   document.addEventListener("click", function(e){
     var tab = e.target.closest(".sheet-tab");
     if (tab) { switchRoom(tab.dataset.room); return; }
-    var add = e.target.closest("#btn-add-room");
-    if (add) { addRoom(); return; }
   });
+  updateRemind();
+  setInterval(updateRemind, 30000);
 }
 initRoomPage();
 """
@@ -543,26 +587,57 @@ def build_stats_html(data):
 
 
 def build_remind_html(schedule, rooms):
+    """服务端预渲染：逐直播间输出未来最近一场（北京时间），与 PAGE_JS buildRemind 语义一致"""
+    now_bj = datetime.utcnow() + timedelta(hours=8)
+
+    def clock_min(t):
+        m = re.match(r"^(\d{1,2}):(\d{2})", str(t or "").strip())
+        return int(m.group(1)) * 60 + int(m.group(2)) if m else -1
+
     items = []
     for room in rooms:
         data = schedule.get(room, {})
-        dates = sorted(data.keys())
-        if not dates:
+        best = None
+        for d in sorted(data.keys()):
+            day = data.get(d)
+            if not isinstance(day, dict):
+                continue
+            try:
+                day0 = datetime.strptime(d, "%Y-%m-%d")
+            except ValueError:
+                continue
+            for slot in SLOT_ORDER:
+                info = day.get(slot) or {}
+                mm = clock_min(info.get("time", ""))
+                if mm < 0:
+                    continue
+                start = day0.replace(hour=mm // 60, minute=mm % 60)
+                if start <= now_bj:
+                    continue
+                if best is None or start < best["start"]:
+                    best = {"start": start, "anchor": (info.get("anchor") or "").strip()}
+        if best is None:
+            items.append(
+                f'<div class="remind-item"><span class="remind-time">{room}</span>'
+                f'<span class="remind-name off">暂无排班</span></div>'
+            )
             continue
-        d = dates[-1]
-        for slot in SLOT_ORDER:
-            info = data[d].get(slot, {})
-            t = (info.get("time", "") or "").strip()
-            a = (info.get("anchor", "") or "").strip()
-            if t and a:
-                items.append((room, d, t, a, slot))
+        st = best["start"].strftime("%H:%M")
+        if best["anchor"]:
+            items.append(
+                f'<div class="remind-item"><span class="remind-time">{room}</span>'
+                f'<span class="remind-slot">{st}</span>'
+                f'<span class="remind-name">{best["anchor"]} 开播</span></div>'
+            )
+        else:
+            items.append(
+                f'<div class="remind-item"><span class="remind-time">{room}</span>'
+                f'<span class="remind-slot">{st}</span>'
+                f'<span class="remind-name off">无人播</span></div>'
+            )
     if not items:
         return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>'
-    return "".join(
-        f'<div class="remind-item"><span class="remind-time">{room} · {t}</span>'
-        f'<span><span class="remind-slot">{slot}</span> · <span class="remind-name">{a}</span></span></div>'
-        for room, d, t, a, slot in items
-    )
+    return '<div class="remind-list">' + "".join(items) + "</div>"
 
 
 def render_html(schedule, cfg):
@@ -578,7 +653,7 @@ def render_html(schedule, cfg):
     tabs = "".join(
         f'<button class="sheet-tab{" active" if i == 0 else ""}" data-room="{room}">{room}</button>'
         for i, room in enumerate(rooms)
-    ) + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>'
+    )
     _stats_parts = []
     for _i, room in enumerate(rooms):
         _hide = " style=\"display:none\"" if _i != 0 else ""
