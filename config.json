@@ -1,9 +1,32 @@
 {
+  "screenshot_dir": "/Users/xiaozhongbo/Desktop/排班截图",
+  "remind_minutes": 10,
+  "schedule_file": "schedule.json",
+  "output_html": "output/schedule.html",
+  "git": {
+    "remote": "https://github.com/Kayn-QY/-.git",
+    "branch": "main",
+    "user_name": "Kayn-QY",
+    "user_email": ""
+  },
   "display_dates": [
+    "2026-08-13",
     "2026-08-14",
     "2026-08-15",
     "2026-08-16",
     "2026-08-17",
-    "2026-08-18"
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-22",
+    "2026-08-23",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-29",
+    "2026-08-30"
   ]
 }

@@ -6,95 +6,120 @@
 <title>排班表 · 在线编辑</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg: oklch(0.145 0.012 255);
-  --surface: oklch(0.185 0.015 255);
-  --surface-2: oklch(0.215 0.016 255);
-  --line: oklch(0.32 0.02 255 / 0.4);
-  --line-strong: oklch(0.40 0.02 255 / 0.5);
-  --text: oklch(0.93 0.008 255);
-  --text-dim: oklch(0.70 0.015 255);
-  --text-faint: oklch(0.50 0.015 255);
-  --accent: oklch(0.82 0.13 78);
-  --accent-soft: oklch(0.82 0.13 78 / 0.13);
-  --font: "Space Grotesk", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --wandor-dark: #0a0a0a;
+  --wandor-text: #1a1a1a;
+  --wandor-muted: #767676;
+  --wandor-prompt: #905831;
+  --font-sans: "Geist", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Special Elite", "PingFang SC", serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html{color-scheme:dark}
-body{
-  font-family:var(--font);
-  background:
-    radial-gradient(1100px 560px at 88% -12%, oklch(0.24 0.045 255 / 0.5), transparent 62%),
-    radial-gradient(900px 520px at -8% 112%, oklch(0.20 0.035 78 / 0.22), transparent 60%),
-    var(--bg);
-  color:var(--text);
-  min-height:100vh;
-  -webkit-font-smoothing:antialiased;
-}
-.shell{max-width:1720px;margin:0 auto;padding:0 28px 56px}
-.masthead{padding:48px 0 24px}
-.eyebrow{font-size:12px;letter-spacing:.30em;color:var(--accent);text-transform:uppercase;font-weight:600;margin-bottom:12px}
-.masthead h1{font-size:clamp(26px,3.6vw,40px);font-weight:700;letter-spacing:-.02em;line-height:1.05}
-.sub{margin-top:10px;color:var(--text-dim);font-size:14px}
-.sub .dot{color:var(--accent);margin:0 8px}
-.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0 4px}
-.toolbar button,.toolbar a.btn-view{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:10px;padding:9px 16px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;transition:border-color .2s,color .2s,transform .2s,background .2s;font-family:var(--font)}
-.toolbar button:hover,.toolbar a.btn-view:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
-.toolbar .btn-primary{background:var(--accent);color:oklch(0.15 0.02 255);border-color:transparent;font-weight:600}
-.toolbar .btn-primary:hover{box-shadow:0 8px 24px var(--accent-soft);color:oklch(0.15 0.02 255)}
-.toolbar .btn-danger{background:transparent;color:#e17055;border-color:oklch(0.6 0.12 25 / 0.5)}
-.toolbar .btn-danger:hover{border-color:#e17055;color:#e17055}
-#save-status{font-size:13px;color:var(--accent);min-height:18px;margin:8px 0 0}
-#save-status.err{color:#e17055}
-.token-bar{background:oklch(0.22 0.03 85 / 0.35);border:1px solid oklch(0.60 0.10 80 / 0.4);border-radius:12px;padding:14px 18px;margin:12px 0 0;max-width:880px;text-align:left;font-size:13px;color:var(--text-dim);display:none}
-.token-bar b{color:var(--text)}
-.token-bar input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;margin-top:8px;font-size:13px;background:var(--bg);color:var(--text);outline:none;font-family:var(--font)}
-.token-bar input:focus{border-color:var(--accent)}
-.token-bar .token-actions{display:flex;gap:8px;margin-top:8px}
-.token-bar button{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:var(--font)}
-.token-bar button.btn-primary{background:var(--accent);color:oklch(0.15 0.02 255);border-color:transparent;font-weight:600}
-.board{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;box-shadow:0 24px 70px oklch(0 0 0 / 0.35);margin-top:14px;animation:rise .6s cubic-bezier(.16,1,.3,1) both}
-.board-scroll{overflow-x:auto;border-radius:12px}
+html{color-scheme:light}
+body{font-family:var(--font-sans);background:#fff;color:var(--wandor-text);overflow-x:hidden;-webkit-font-smoothing:antialiased;min-height:100vh}
+.hero-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none}
+.top-overlay{position:fixed;inset-x:0;top:0;height:687px;background:linear-gradient(180deg,rgba(255,255,255,1) 0%,rgba(255,255,255,0) 100%);pointer-events:none;z-index:1}
+nav{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:28px 80px 16px}
+.wordmark{font-family:var(--font-display);font-size:40px;line-height:1;color:var(--wandor-text);user-select:none;letter-spacing:.02em}
+.nav-actions{display:flex;align-items:center;gap:20px}
+.btn-dark{display:inline-flex;align-items:center;background:var(--wandor-dark);color:#fafafa;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:14px 20px;border-radius:999px;text-decoration:none;transition:background-color .2s,transform .15s;white-space:nowrap}
+.btn-dark:hover{background:#333}
+.btn-dark:active{transform:scale(.95)}
+.btn-dark:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:600;text-transform:uppercase;color:#292929;letter-spacing:.04em;text-decoration:none;transition:opacity .2s;white-space:nowrap}
+.btn-ghost:hover{opacity:.55}
+.btn-outline{display:inline-flex;align-items:center;background:transparent;border:1px solid rgba(26,26,26,.22);color:var(--wandor-text);cursor:pointer;font-family:var(--font-sans);font-size:14px;font-weight:500;border-radius:999px;padding:10px 18px;text-decoration:none;transition:border-color .2s,background .2s;white-space:nowrap}
+.btn-outline:hover{border-color:rgba(144,88,49,.55);background:rgba(255,255,255,.5)}
+.content{position:relative;z-index:2;max-width:1680px;margin:0 auto;padding:32px 80px 80px}
+.glass-card{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid rgba(255,255,255,.65);border-radius:24px;box-shadow:0 24px 80px rgba(0,0,0,.18);padding:36px 40px;animation:rise .6s cubic-bezier(.16,1,.3,1) both}
+.card-head{margin-bottom:24px}
+.card-head h1{font-size:clamp(22px,2.8vw,30px);font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.card-head .sub{margin-top:8px;font-size:14px;color:var(--wandor-muted)}
+.card-head .sub time{color:var(--wandor-text);font-weight:500}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:22px}
+#save-status{font-size:13px;color:var(--wandor-prompt);min-height:18px;margin-top:12px}
+#save-status.err{color:#c0392b}
+.token-bar{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid rgba(255,255,255,.65);border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.12);padding:18px 22px;margin:20px 0 0;max-width:880px;font-size:13px;color:var(--wandor-muted);display:none;position:relative;z-index:2}
+.token-bar b{color:var(--wandor-text)}
+.token-bar input{width:100%;padding:10px 14px;border:1px solid rgba(26,26,26,.18);border-radius:999px;margin-top:10px;font-size:13px;background:rgba(255,255,255,.7);color:var(--wandor-text);outline:none;font-family:var(--font-sans)}
+.token-bar input:focus{border-color:var(--wandor-prompt)}
+.token-bar .token-actions{display:flex;gap:8px;margin-top:10px}
+.token-bar button{border:1px solid rgba(26,26,26,.22);background:transparent;color:var(--wandor-text);border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:var(--font-sans);transition:border-color .2s}
+.token-bar button:hover{border-color:var(--wandor-prompt)}
+.token-bar button.btn-primary{background:var(--wandor-dark);color:#fafafa;border-color:transparent;font-weight:500}
+.token-bar button.btn-primary:hover{background:#333}
+.board{margin-top:10px}
+.board-scroll{overflow-x:auto;border-radius:14px}
 table{width:100%;border-collapse:collapse;min-width:1500px;font-size:13px}
-thead th{background:var(--surface-2);color:var(--text-dim);font-weight:600;padding:13px 10px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
-.date-col{min-width:104px;color:var(--text);font-weight:500}
-.date-col .wd{display:block;font-size:11px;color:var(--text-faint);font-weight:400;margin-top:3px}
-.date-col .del-date{display:inline-block;margin-top:5px;font-size:11px;font-weight:400;cursor:pointer;color:var(--text-faint);text-decoration:underline;opacity:.8;transition:color .15s}
-.date-col .del-date:hover{color:#e17055}
-td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:center;color:var(--text);vertical-align:middle;transition:background .15s}
-.row-slot td{border-top:1px solid var(--line-strong)}
-.slot-col{width:72px;color:var(--text-faint);font-weight:500}
-.slot-badge{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:4px 9px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:12px}
-.role-col{width:86px;color:var(--text-dim);font-size:12px;font-weight:500}
+thead th{background:rgba(255,255,255,.55);color:var(--wandor-text);font-weight:600;padding:13px 10px;border-bottom:1px solid rgba(26,26,26,.10);white-space:nowrap}
+.date-col{min-width:104px;color:var(--wandor-text);font-weight:500}
+.date-col .wd{display:block;font-size:11px;color:var(--wandor-muted);font-weight:400;margin-top:3px}
+.date-col .del-date{display:inline-block;margin-top:5px;font-size:11px;font-weight:400;cursor:pointer;color:var(--wandor-muted);text-decoration:underline;opacity:.8;transition:color .15s}
+.date-col .del-date:hover{color:#c0392b}
+td{border-bottom:1px solid rgba(26,26,26,.07);padding:9px 8px;text-align:center;color:var(--wandor-text);vertical-align:middle;transition:background .15s}
+.row-slot td{border-top:1px solid rgba(26,26,26,.12)}
+.slot-col{width:72px;color:var(--wandor-muted);font-weight:500}
+.slot-badge{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:4px 9px;border-radius:999px;background:rgba(144,88,49,.12);color:var(--wandor-prompt);font-weight:600;font-size:12px}
+.role-col{width:86px;color:var(--wandor-muted);font-size:12px;font-weight:500}
 td.cell{min-width:92px;min-height:28px;outline:none;cursor:text}
-td.cell:hover{background:oklch(0.27 0.025 255 / 0.6)}
-td.cell:focus{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
-td.cell.anchor{color:var(--accent);font-weight:600}
-td.cell.empty{color:var(--text-faint)}
-.board-note{margin-top:14px;font-size:12px;color:var(--text-faint);padding:0 6px 6px}
-.foot{text-align:center;color:var(--text-faint);font-size:12px;letter-spacing:.10em;padding:32px 0 0}
+td.cell:hover{background:rgba(144,88,49,.06)}
+td.cell:focus{background:rgba(144,88,49,.12);box-shadow:inset 0 0 0 1.5px var(--wandor-prompt)}
+td.cell.anchor{color:var(--wandor-prompt);font-weight:600}
+td.cell.empty{color:rgba(26,26,26,.22)}
+.board-note{margin-top:14px;font-size:12px;color:var(--wandor-muted);padding:0 6px 6px}
+.foot{position:relative;z-index:2;text-align:center;color:rgba(26,26,26,.5);font-size:12px;letter-spacing:.10em;padding:28px 0 4px}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media (max-width:640px){.shell{padding:0 16px 40px}.masthead{padding:36px 0 18px}.masthead h1{font-size:26px}}
+@media (max-width:900px){
+  nav{padding:20px 24px 14px}
+  .wordmark{font-size:32px}
+  .content{padding:24px 16px 48px}
+  .glass-card{padding:20px 16px;border-radius:18px}
+}
+@media (max-width:640px){
+  .nav-actions{gap:10px}
+  .btn-dark{padding:11px 16px;font-size:13px}
+  .btn-ghost{display:none}
+}
 </style>
 </head>
 <body>
-<div class="shell">
-  <header class="masthead">
-    <div class="eyebrow">ZEEKR 7X · Live Ops</div>
-    <h1>直播排班表 · 在线编辑</h1>
-    <p class="sub">点击单元格直接编辑<span class="dot">·</span>保存后自动更新公开网页（GitHub Pages 约 1~2 分钟后生效）</p>
-    <div class="toolbar">
-      <button class="btn-primary" id="btn-add-date">＋ 新增日期列</button>
-      <button id="btn-prev-week">上周</button>
-      <button id="btn-next-week">下周</button>
-      <button class="btn-primary" id="btn-save">保存并发布</button>
-      <a class="btn-view" href="index.html" target="_blank">查看网页</a>
+<video class="hero-video" id="hero-video"></video>
+<div class="top-overlay"></div>
+
+<nav>
+  <span class="wordmark">7X OPS</span>
+  <div class="nav-actions">
+    <a class="btn-ghost" href="index.html" target="_blank">查看网页</a>
+    <button class="btn-dark" id="btn-save">保存并发布</button>
+  </div>
+</nav>
+
+<main class="content">
+  <section class="glass-card">
+    <header class="card-head">
+      <h1>直播排班表 · 在线编辑</h1>
+      <p class="sub">点击单元格直接编辑 · 保存后自动更新公开网页（GitHub Pages 约 1~2 分钟后生效）</p>
+      <div class="toolbar">
+        <button class="btn-dark" id="btn-add-date">＋ 新增日期列</button>
+        <button class="btn-outline" id="btn-prev-week">上周</button>
+        <button class="btn-outline" id="btn-next-week">下周</button>
+      </div>
+      <div id="save-status"></div>
+    </header>
+
+    <div class="board">
+      <div class="board-scroll">
+        <table id="edit-table">
+          <thead><tr id="thead-row"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="board-note">赤陶色为主播 · 点击「删除本列」可移除日期列</div>
     </div>
-    <div id="save-status"></div>
-  </header>
+  </section>
 
   <div class="token-bar" id="token-bar">
     <div><b>首次保存需要 GitHub Token</b>（Fine-grained PAT，仅授权本仓库 Contents 读写权限）。Token 仅保存在当前浏览器的本地存储中，不会写入公开页面。换浏览器/设备需重新输入。</div>
@@ -105,18 +130,8 @@ td.cell.empty{color:var(--text-faint)}
     </div>
   </div>
 
-  <div class="board">
-    <div class="board-scroll">
-      <table id="edit-table">
-        <thead><tr id="thead-row"></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-    <div class="board-note">琥珀色为主播 · 点击「删除本列」可移除日期列</div>
-  </div>
-
   <footer class="foot">7X LIVE OPS CONSOLE · Marvis Schedule Reminder</footer>
-</div>
+</main>
 
 <script>
 "use strict";
@@ -132,6 +147,7 @@ const ROLES = [
   ["ad", "投流"],
 ];
 const SLOT_ORDER = ["第1场","第2场","第3场","第4场","第5场","第6场"];
+const VIDEO_SRC = "https://pollen-batch-41236914.figma.site/_components/v2/f0ee2dae7671c170c34f12e31c4cb41418976c98/769c564298c132f7919405cd9f17c1b1231f341d.769c5642.mp4";
 
 let schedule = {};
 let displayDates = [];
@@ -237,59 +253,73 @@ function shiftWeek(days){
   renderTable(); bindCells();
 }
 
-// ---------- 渲染 HTML（与 render_web.py 视觉一致） ----------
+// ---------- 渲染 HTML（与 render_web.py 视觉一致，Wandor 风格） ----------
 const CSS_VIEW = `
 :root{
-  --bg: oklch(0.145 0.012 255);
-  --surface: oklch(0.185 0.015 255);
-  --surface-2: oklch(0.215 0.016 255);
-  --line: oklch(0.32 0.02 255 / 0.4);
-  --line-strong: oklch(0.40 0.02 255 / 0.5);
-  --text: oklch(0.93 0.008 255);
-  --text-dim: oklch(0.70 0.015 255);
-  --text-faint: oklch(0.50 0.015 255);
-  --accent: oklch(0.82 0.13 78);
-  --accent-soft: oklch(0.82 0.13 78 / 0.13);
-  --font: "Space Grotesk", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --wandor-dark: #0a0a0a;
+  --wandor-text: #1a1a1a;
+  --wandor-muted: #767676;
+  --wandor-prompt: #905831;
+  --font-sans: "Geist", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Special Elite", "PingFang SC", serif;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html{color-scheme:dark}
-body{font-family:var(--font);background:radial-gradient(1100px 560px at 88% -12%, oklch(0.24 0.045 255 / 0.5), transparent 62%),radial-gradient(900px 520px at -8% 112%, oklch(0.20 0.035 78 / 0.22), transparent 60%),var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
-.shell{max-width:1680px;margin:0 auto;padding:0 28px 64px}
-.masthead{display:flex;justify-content:space-between;align-items:flex-end;gap:28px;flex-wrap:wrap;padding:56px 0 30px}
-.eyebrow{font-size:12px;letter-spacing:.30em;color:var(--accent);text-transform:uppercase;font-weight:600;margin-bottom:12px}
-.masthead h1{font-size:clamp(30px,4.4vw,48px);font-weight:700;letter-spacing:-.02em;line-height:1.04}
-.sub{margin-top:12px;color:var(--text-dim);font-size:14px}
-.sub .dot{color:var(--accent);margin:0 8px}
-.sub time{color:var(--text);font-weight:500}
-.btn-edit{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:oklch(0.15 0.02 255);text-decoration:none;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:600;transition:transform .22s cubic-bezier(.16,1,.3,1),box-shadow .22s;white-space:nowrap}
-.btn-edit:hover{transform:translateY(-2px);box-shadow:0 10px 28px var(--accent-soft)}
-.btn-edit:active{transform:translateY(0)}
-.stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
-.chip{font-size:13px;color:var(--text-dim);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;transition:border-color .2s,color .2s,transform .2s}
-.chip b{color:var(--accent);font-weight:600}
-.chip:hover{border-color:var(--accent);color:var(--text);transform:translateY(-1px)}
-.board{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px;box-shadow:0 24px 70px oklch(0 0 0 / 0.35);animation:rise .6s cubic-bezier(.16,1,.3,1) both}
-.board-scroll{overflow-x:auto;border-radius:12px}
+html{color-scheme:light}
+body{font-family:var(--font-sans);background:#fff;color:var(--wandor-text);overflow-x:hidden;-webkit-font-smoothing:antialiased;min-height:100vh}
+.hero-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none}
+.top-overlay{position:fixed;inset-x:0;top:0;height:687px;background:linear-gradient(180deg,rgba(255,255,255,1) 0%,rgba(255,255,255,0) 100%);pointer-events:none;z-index:1}
+nav{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:28px 80px 16px}
+.wordmark{font-family:var(--font-display);font-size:40px;line-height:1;color:var(--wandor-text);user-select:none;letter-spacing:.02em}
+.nav-links{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:32px}
+.nav-link{background:transparent;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;text-transform:uppercase;color:var(--wandor-text);letter-spacing:.04em;text-decoration:none;transition:opacity .2s}
+.nav-link:hover{opacity:.55}
+.nav-actions{display:flex;align-items:center;gap:32px}
+.btn-dark{display:inline-flex;align-items:center;background:var(--wandor-dark);color:#fafafa;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:14px 20px;border-radius:999px;text-decoration:none;transition:background-color .2s,transform .15s;white-space:nowrap}
+.btn-dark:hover{background:#333}
+.btn-dark:active{transform:scale(.95)}
+.btn-ghost{background:transparent;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:600;text-transform:uppercase;color:#292929;letter-spacing:.04em;text-decoration:none;transition:opacity .2s}
+.btn-ghost:hover{opacity:.55}
+.content{position:relative;z-index:2;max-width:1360px;margin:0 auto;padding:40px 80px 80px}
+.glass-card{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid rgba(255,255,255,.65);border-radius:24px;box-shadow:0 24px 80px rgba(0,0,0,.18);padding:36px 40px;animation:rise .6s cubic-bezier(.16,1,.3,1) both}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:28px}
+.card-head h1{font-size:clamp(22px,2.8vw,30px);font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.card-head .sub{margin-top:8px;font-size:14px;color:var(--wandor-muted)}
+.card-head .sub time{color:var(--wandor-text);font-weight:500}
+.stats{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.chip{font-size:13px;color:var(--wandor-muted);background:rgba(255,255,255,.6);border:1px solid rgba(26,26,26,.08);border-radius:999px;padding:7px 14px;transition:border-color .2s,transform .2s}
+.chip b{color:var(--wandor-prompt);font-weight:600}
+.chip:hover{border-color:rgba(144,88,49,.4);transform:translateY(-1px)}
+.table-scroll{overflow-x:auto;border-radius:14px}
 table{width:100%;border-collapse:collapse;min-width:1260px;font-size:13px}
-thead th{background:var(--surface-2);color:var(--text-dim);font-weight:600;padding:13px 10px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
-.date-col{min-width:98px;color:var(--text);font-weight:500}
-.date-col .wd{display:block;font-size:11px;color:var(--text-faint);font-weight:400;margin-top:3px}
-td{border-bottom:1px solid var(--line);padding:10px 10px;text-align:center;color:var(--text);vertical-align:middle;transition:background .15s}
-tbody tr:hover td{background:oklch(0.26 0.02 255 / 0.55)}
-.row-slot td{border-top:1px solid var(--line-strong)}
-.slot-col{width:72px;color:var(--text-faint);font-weight:500}
-.slot-badge{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:4px 9px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:12px;letter-spacing:.02em}
-.role-col{width:86px;color:var(--text-dim);font-size:12px;font-weight:500}
+thead th{background:rgba(255,255,255,.55);color:var(--wandor-text);font-weight:600;padding:13px 10px;border-bottom:1px solid rgba(26,26,26,.10);white-space:nowrap;text-align:center}
+.date-col{min-width:98px;font-weight:600}
+.date-col .wd{display:block;font-size:11px;color:var(--wandor-muted);font-weight:400;margin-top:3px}
+td{border-bottom:1px solid rgba(26,26,26,.07);padding:10px 10px;text-align:center;color:var(--wandor-text);vertical-align:middle;transition:background .15s}
+tbody tr:hover td{background:rgba(0,0,0,.028)}
+.row-slot td{border-top:1px solid rgba(26,26,26,.12)}
+.slot-col{width:72px;color:var(--wandor-muted);font-weight:500}
+.slot-badge{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:4px 9px;border-radius:999px;background:rgba(144,88,49,.12);color:var(--wandor-prompt);font-weight:600;font-size:12px;letter-spacing:.02em}
+.role-col{width:86px;color:var(--wandor-muted);font-size:12px;font-weight:500}
 .cell{min-height:26px}
-.cell.anchor{color:var(--accent);font-weight:600}
-.cell.empty{color:var(--text-faint)}
+.cell.anchor{color:var(--wandor-prompt);font-weight:600}
+.cell.empty{color:rgba(26,26,26,.22)}
 .cell .void{opacity:.35}
-.board-note{margin-top:14px;font-size:12px;color:var(--text-faint);padding:0 6px 6px}
-.foot{text-align:center;color:var(--text-faint);font-size:12px;letter-spacing:.10em;padding:36px 0 0}
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.note{margin-top:18px;font-size:12px;color:var(--wandor-muted);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.note .tag{letter-spacing:.06em;text-transform:uppercase;font-size:11px;color:rgba(118,118,118,.8)}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media (max-width:640px){.shell{padding:0 16px 48px}.masthead{padding:40px 0 22px}.masthead h1{font-size:28px}}
+@media (max-width:900px){
+  nav{padding:20px 24px 14px}
+  .wordmark{font-size:32px}
+  .nav-links{display:none}
+  .content{padding:24px 16px 48px}
+  .glass-card{padding:20px 16px;border-radius:18px}
+}
+@media (max-width:640px){
+  .nav-actions{gap:12px}
+  .btn-dark{padding:11px 16px;font-size:13px}
+  .btn-ghost{display:none}
+}
 `;
 
 function renderHtml(updatedAt){
@@ -333,24 +363,35 @@ function renderHtml(updatedAt){
 <title>【7X官方直播间】直播排班表</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${CSS_VIEW}</style>
 </head>
 <body>
-<div class="shell">
-  <header class="masthead">
-    <div>
-      <div class="eyebrow">ZEEKR 7X · Live Ops</div>
-      <h1>直播排班表</h1>
-      <p class="sub">【7X官方直播间】<span class="dot">·</span>数据更新 <time>${updatedAt}</time></p>
-    </div>
-    <a class="btn-edit" href="editor.html" target="_blank">在线编辑</a>
-  </header>
+<video class="hero-video" src="${VIDEO_SRC}" autoplay muted loop playsinline></video>
+<div class="top-overlay"></div>
 
-  <section class="stats">${chips}</section>
+<nav>
+  <span class="wordmark">7X OPS</span>
+  <div class="nav-links">
+    <a class="nav-link" href="#stats">Stats</a>
+    <a class="nav-link" href="#schedule">Schedule</a>
+    <a class="nav-link" href="#help">Help</a>
+  </div>
+  <div class="nav-actions">
+    <a class="btn-dark" href="editor.html" target="_blank">在线编辑</a>
+  </div>
+</nav>
 
-  <section class="board">
-    <div class="board-scroll">
+<main class="content">
+  <section class="glass-card" id="schedule">
+    <header class="card-head">
+      <div>
+        <h1>【7X官方直播间】直播排班表</h1>
+        <p class="sub">数据更新 <time>${updatedAt}</time></p>
+      </div>
+      <div class="stats" id="stats">${chips}</div>
+    </header>
+    <div class="table-scroll">
       <table>
         <thead>
           <tr><th class="col-slot">场次</th><th class="col-role">角色</th>${dateHeader}</tr>
@@ -358,11 +399,12 @@ function renderHtml(updatedAt){
         <tbody>${rows.join("")}</tbody>
       </table>
     </div>
-    <div class="board-note">琥珀色为主播 · 空白点为未排班（周末/节假日/未填写）</div>
+    <div class="note" id="help">
+      <span>赤陶色为主播 · 圆点为未排班（周末/节假日/未填写）</span>
+      <span class="tag">Wandor Style · Marvis Schedule</span>
+    </div>
   </section>
-
-  <footer class="foot">7X LIVE OPS CONSOLE · Marvis Schedule Reminder</footer>
-</div>
+</main>
 </body>
 </html>`;
 }
@@ -461,6 +503,9 @@ async function save(){
 }
 
 function init(){
+  const video = $("hero-video");
+  video.src = VIDEO_SRC;
+  video.autoplay = true; video.muted = true; video.loop = true; video.playsInline = true;
   $("btn-add-date").addEventListener("click", addDateColumn);
   $("btn-prev-week").addEventListener("click", () => shiftWeek(-7));
   $("btn-next-week").addEventListener("click", () => shiftWeek(7));
