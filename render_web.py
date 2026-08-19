@@ -129,10 +129,11 @@ body{
   box-shadow:0 30px 60px rgba(20,30,50,.2), inset 0 1px 0 rgba(255,255,255,.8);
   padding:24px;animation:rise .6s cubic-bezier(.16,1,.3,1) both;
 }
-.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:16px}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
 .card-head h2{font-family:var(--font-display);font-size:18px;font-weight:600;color:#0f1e3d}
 .card-head .sub{margin-top:6px;font-size:12px;color:var(--text-muted)}
 .card-head .sub time{color:#0f1e3d;font-weight:500}
+.head-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
 /* 统计 chips */
 .stats{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .chip{
@@ -190,10 +191,10 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 /* 底部说明 */
 .note{margin-top:20px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0 4px}
 .note .tag{letter-spacing:.06em;text-transform:uppercase;font-size:10.5px;color:rgba(74,90,114,.75)}
-/* 左下角 Excel 式 Sheet 标签栏 */
+/* 排班表标题栏内嵌 Excel 式 Sheet 标签栏 */
 .sheet-bar{
-  position:fixed;left:20px;bottom:20px;z-index:120;display:flex;align-items:center;gap:6px;
-  padding:8px 10px;border-radius:18px;max-width:calc(100vw - 40px);overflow-x:auto;
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:16px;max-width:100%;overflow-x:auto;
   background:linear-gradient(135deg, rgba(255,255,255,.66), rgba(255,255,255,.42));
   backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);
   border:1px solid rgba(255,255,255,.75);
@@ -230,7 +231,8 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .pill-nav a{padding:7px 12px;font-size:12px}
   .hero-inner{padding:40px 24px}
   .glass-card{padding:18px 14px;border-radius:20px}
-  .sheet-bar{left:12px;bottom:12px;max-width:calc(100vw - 24px)}
+  .head-right{justify-content:flex-start;width:100%}
+  .sheet-bar{max-width:100%}
 }
 """
 
@@ -361,7 +363,7 @@ function renderHtml(updatedAt){
   h += '  <div class="cards-grid">\n';
   h += '    <section class="glass-card" id="schedule">\n      <header class="card-head">\n';
   h += '        <div>\n          <h2>排班表</h2>\n          <p class="sub">数据更新 <time>' + esc(updatedAt) + '</time></p>\n        </div>\n';
-  h += '        <div class="stats-wrap">' + statsAll + '</div>\n      </header>\n';
+  h += '        <div class="head-right">\n          <div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n          <div class="stats-wrap">' + statsAll + '</div>\n        </div>\n      </header>\n';
   h += '      <div class="room-tables">' + roomTables + '</div>\n    </section>\n';
   h += '    <aside class="glass-card remind-card" id="reminder">\n      <header class="card-head">\n';
   h += '        <div>\n          <h2>最近排班提醒</h2>\n          <p class="sub">全部直播间 · 到点自动提醒</p>\n        </div>\n      </header>\n';
@@ -370,7 +372,6 @@ function renderHtml(updatedAt){
   h += '    <span>深蓝为主播 · 赤陶为车型 · 圆点为未排班（周末/节假日/未填写）</span>\n';
   h += '    <span class="tag">Frosted 3D Style · Marvis Schedule</span>\n  </div>\n';
   h += '</main>\n';
-  h += '<div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n';
   h += '<script>__PAGE_JS__</' + 'script>\n';
   h += '</body>\n</html>';
   return h;
@@ -643,7 +644,10 @@ def render_html(schedule, cfg):
           <h2>排班表</h2>
           <p class="sub">数据更新 <time>{updated_at}</time></p>
         </div>
-        <div class="stats-wrap">{stats_all}</div>
+        <div class="head-right">
+          <div class="sheet-bar" id="sheet-bar">{tabs}</div>
+          <div class="stats-wrap">{stats_all}</div>
+        </div>
       </header>
       <div class="room-tables">{room_tables}</div>
     </section>
@@ -664,10 +668,6 @@ def render_html(schedule, cfg):
     <span class="tag">Frosted 3D Style · Marvis Schedule</span>
   </div>
 </main>
-
-<div class="sheet-bar" id="sheet-bar">
-  {tabs}
-</div>
 
 <script>
 {page_js}
