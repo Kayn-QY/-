@@ -140,17 +140,17 @@ body{
 .chip:hover{transform:translateY(-1px)}
 /* 表格 */
 .table-scroll{overflow-x:auto;border-radius:16px}
-table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px}
+table{width:100%;border-collapse:separate;border-spacing:6px;table-layout:fixed;min-width:1120px;font-size:12.5px}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
-.date-col{min-width:96px;font-weight:600}
+.date-col{width:96px;min-width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .slot-col{width:84px;color:#334155;font-weight:500}
 .role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
 td{
-  border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:9px 6px;text-align:center;
+  border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:0 6px;text-align:center;
   color:#334155;vertical-align:middle;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff;
   transition:background .15s,transform .15s;
 }
@@ -160,16 +160,19 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;font-weight:600;font-size:11px;
   box-shadow:0 6px 14px rgba(10,27,51,.3);
 }
-.cell{min-height:26px}
-.cell.anchor{
-  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;font-weight:600;border-color:transparent;
-  box-shadow:0 8px 18px rgba(10,27,51,.3);
+.cell{width:96px;min-width:96px;height:46px;min-height:46px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.time{
+  background:linear-gradient(135deg,#4f8df7,#2f6fe0);color:#fff;font-weight:600;border-color:transparent;
+  box-shadow:0 8px 18px rgba(47,111,224,.32), inset 0 1px 0 rgba(255,255,255,.38);
 }
 .cell.car{
-  background:linear-gradient(135deg, #905831, #c07a4a);color:#fff;font-weight:600;border-color:transparent;
-  box-shadow:0 8px 18px rgba(144,88,49,.3);
+  background:linear-gradient(135deg,#f0a25e,#c9793d);color:#fff;font-weight:600;border-color:transparent;
+  box-shadow:0 8px 18px rgba(201,121,61,.32), inset 0 1px 0 rgba(255,255,255,.38);
 }
-.cell.time{color:#0f1e3d;font-weight:500}
+.cell.anchor{
+  background:linear-gradient(135deg,#2ec4a6,#0f9c8b);color:#fff;font-weight:600;border-color:transparent;
+  box-shadow:0 8px 18px rgba(15,156,139,.32), inset 0 1px 0 rgba(255,255,255,.38);
+}
 .cell.empty{background:rgba(255,255,255,.32);color:rgba(31,44,68,.25);border-color:rgba(255,255,255,.4)}
 /* 提醒卡片 */
 .remind-card{align-self:start}
