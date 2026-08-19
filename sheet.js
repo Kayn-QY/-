@@ -1,57 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""网页排班表渲染：模仿原 Excel 表格结构（日期横向、场次纵向、角色行）
-设计风格：毛玻璃 3D 版（Frosted Glass + 3D Depth）—— 磨砂玻璃背景 + 圆角毛玻璃框 + 外投影/内高光立体感
-参考视觉稿：design-direction-v2.html（整体背景磨砂朦胧、内容框 backdrop-filter blur + 半透明渐变 + 1px 半透明白描边、3D 外投影 + inset 高光）
-"""
-import json
-import os
-from collections import Counter
-from datetime import datetime, timedelta
+"use strict";
+/* 排班站 Excel 式 Sheet：左下角浮动电子表格，点击编辑、增删行列；保存复用 editor.html 的 GitHub API + Token 逻辑，
+   写回 schedule.json / config.json，并用最新数据重新生成 index.html / output/schedule.html（含本组件）。 */
+const SHEET_REPO_OWNER = "Kayn-QY";
+const SHEET_REPO_NAME = "-";
+const SHEET_API = `https://api.github.com/repos/${SHEET_REPO_OWNER}/${SHEET_REPO_NAME}/contents/`;
+const SHEET_WEEKDAYS = ["周一","周二","周三","周四","周五","周六","周日"];
+const SHEET_ROLES = [
+  ["time", "直播时间"],
+  ["car", "直播车型"],
+  ["anchor", "主播"],
+  ["tech", "技术"],
+  ["ad", "投流"],
+];
+const SHEET_MARQUEE = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"];
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
-SCHEDULE_PATH = os.path.join(BASE_DIR, "schedule.json")
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
-
-WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-ROLES = [
-    ("time", "直播时间"),
-    ("car", "直播车型"),
-    ("anchor", "主播"),
-    ("tech", "技术"),
-    ("ad", "投流"),
-]
-SLOT_ORDER = ["第1场", "第2场", "第3场", "第4场", "第5场", "第6场"]
-
-MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"]
-
-# Excel 式 Sheet 面板（左下角浮动，与 editor.html renderHtml 保持一致）
-SHEET_HTML = """
-<div class="sheet-panel" id="sheet-panel">
-  <div class="sheet-head">
-    <span class="sheet-title">Excel Sheet · 排班编辑</span>
-    <div class="sheet-actions">
-      <button id="sheet-add-col">＋列</button>
-      <button id="sheet-add-row">＋行</button>
-      <button class="sheet-save" id="sheet-save">保存</button>
-      <button id="sheet-collapse">收起</button>
-    </div>
-  </div>
-  <div class="sheet-wrap"><table class="sheet-table" id="sheet-table"></table></div>
-  <div class="sheet-status" id="sheet-status">加载中…</div>
-  <div class="sheet-token" id="sheet-token">
-    <input type="password" id="sheet-token-input" placeholder="GitHub Token（ghp_ 或 github_pat_ 开头）">
-    <div class="sheet-token-actions">
-      <button class="btn-primary" id="sheet-token-save">保存 Token</button>
-      <button id="sheet-token-clear">清除</button>
-    </div>
-  </div>
-</div>
-<script src="sheet.js"></script>
-"""
-
-CSS_TEMPLATE = """
+/* 与 render_web.py CSS_TEMPLATE / editor.html CSS_VIEW 保持一致（生成脚本注入） */
+const SHEET_CSS = `
 :root{
   --ink-deep: #0a1b33;
   --ink-2: #1e3a5f;
@@ -293,138 +257,261 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .hero-inner{padding:40px 24px}
   .glass-card{padding:18px 14px;border-radius:20px}
 }
-"""
+`;
 
+let sheetSchedule = {};
+let sheetDates = [];
+let sheetCfg = {};
+let sheetSlots = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 
-def load_config():
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+function $sh(id){ return document.getElementById(id); }
+function shEscape(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function shFmt(d){ return d.slice(5).replace("-", "/"); }
+function shParse(s){
+  let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
+  return null;
+}
+function shISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function shStatus(msg, err){
+  const el = $sh("sheet-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = err ? "err" : "";
+}
+function shSortSlots(a, b){
+  const ma = a.match(/\d+/), mb = b.match(/\d+/);
+  if (ma && mb) return (+ma[0]) - (+mb[0]);
+  return a < b ? -1 : 1;
+}
 
+async function shLoad(){
+  try {
+    const [sRes, cRes] = await Promise.all([
+      fetch("schedule.json", {cache: "no-store"}),
+      fetch("config.json", {cache: "no-store"}),
+    ]);
+    if (!sRes.ok) throw new Error("schedule.json 加载失败: " + sRes.status);
+    sheetSchedule = await sRes.json();
+    if (cRes.ok) sheetCfg = await cRes.json();
+    sheetDates = (sheetCfg.display_dates && sheetCfg.display_dates.length) ? sheetCfg.display_dates.slice() : Object.keys(sheetSchedule).sort();
+    Object.keys(sheetSchedule).forEach(d => { if (!sheetDates.includes(d)) sheetDates.push(d); });
+    sheetDates.sort();
+    const slots = new Set(sheetSlots);
+    Object.values(sheetSchedule).forEach(sl => Object.keys(sl).forEach(s => slots.add(s)));
+    sheetSlots = Array.from(slots).sort(shSortSlots);
+    shRender();
+  } catch (e) {
+    shStatus("数据加载失败（请确认是通过 https://kayn-qy.github.io/-/ 访问）: " + e.message, true);
+  }
+}
 
-def load_schedule():
-    if not os.path.exists(SCHEDULE_PATH):
-        return {}
-    with open(SCHEDULE_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+function shRender(){
+  const wrap = $sh("sheet-table");
+  if (!wrap) return;
+  let head = '<tr><th class="sheet-corner">日期 \\ 场次</th>';
+  sheetDates.forEach((d, i) => {
+    const dt = shParse(d);
+    const wd = dt ? SHEET_WEEKDAYS[dt.getDay()] : "";
+    head += `<th class="sheet-date">${shFmt(d)}<span class="wd" style="display:block;font-size:9px;color:#4a5a72;font-weight:400">${wd}</span><span class="sheet-del" data-sheet-del-col="${i}">×</span></th>`;
+  });
+  head += '</tr>';
+  let body = "";
+  sheetSlots.forEach(slot => {
+    SHEET_ROLES.forEach(([rk, rn]) => {
+      let cells = "";
+      sheetDates.forEach(d => {
+        const info = (sheetSchedule[d] && sheetSchedule[d][slot]) || {};
+        const val = info[rk] !== undefined ? info[rk] : "";
+        const empty = !String(val).trim();
+        cells += `<td class="sheet-cell${empty ? " empty" : ""}" contenteditable="true" data-sd="${shEscape(d)}" data-ss="${shEscape(slot)}" data-sr="${rk}">${shEscape(val)}</td>`;
+      });
+      const label = rk === "time" ? `<span class="slot-badge">${shEscape(slot)}</span>` : `<span class="sheet-rolename">${rn}</span>`;
+      const del = rk === "time" ? `<span class="sheet-del" data-sheet-del-row="${shEscape(slot)}">×</span>` : "";
+      body += `<tr><td class="sheet-label">${label}${del}</td>${cells}</tr>`;
+    });
+  });
+  wrap.innerHTML = head + body;
+  shBind();
+}
 
+function shBind(){
+  document.querySelectorAll("#sheet-table td.sheet-cell").forEach(td => {
+    td.addEventListener("input", () => {
+      const d = td.dataset.sd, s = td.dataset.ss, r = td.dataset.sr;
+      if (!sheetSchedule[d]) sheetSchedule[d] = {};
+      if (!sheetSchedule[d][s]) sheetSchedule[d][s] = {};
+      sheetSchedule[d][s][r] = td.innerText.trim();
+      td.classList.toggle("empty", !td.innerText.trim());
+    });
+  });
+  document.querySelectorAll("#sheet-table .sheet-del[data-sheet-del-col]").forEach(el => {
+    el.addEventListener("click", () => shDelCol(parseInt(el.dataset.sheetDelCol, 10)));
+  });
+  document.querySelectorAll("#sheet-table .sheet-del[data-sheet-del-row]").forEach(el => {
+    el.addEventListener("click", () => shDelRow(el.dataset.sheetDelRow));
+  });
+}
 
-def display_dates(cfg, schedule):
-    """确定展示的日期列：优先用配置，否则用数据范围"""
-    if cfg.get("display_dates"):
-        return cfg["display_dates"]
-    dates = sorted(schedule.keys())
-    if not dates:
-        return []
-    start, end = datetime.strptime(dates[0], "%Y-%m-%d"), datetime.strptime(dates[-1], "%Y-%m-%d")
-    result = []
-    cur = start
-    while cur <= end:
-        result.append(cur.strftime("%Y-%m-%d"))
-        cur += timedelta(days=1)
-    return result
+function shAddCol(){
+  const input = prompt("输入新日期列（格式 2026-08-20，或 08-20）：");
+  if (!input) return;
+  const dt = shParse(input.trim());
+  if (!dt) { shStatus("日期格式不正确", true); return; }
+  const iso = shISO(dt);
+  if (sheetDates.includes(iso)) { shStatus("该日期已存在", true); return; }
+  sheetDates.push(iso);
+  sheetDates.sort();
+  if (!sheetSchedule[iso]) sheetSchedule[iso] = {};
+  shRender();
+  shStatus(`已添加日期列 ${iso}（点击「保存」发布）`);
+}
+function shDelCol(i){
+  const d = sheetDates[i];
+  if (!confirm(`确定删除日期列 ${d} 及其全部排班数据？`)) return;
+  sheetDates.splice(i, 1);
+  delete sheetSchedule[d];
+  shRender();
+  shStatus(`已删除 ${d}（点击「保存」发布）`);
+}
+function shAddRow(){
+  const input = prompt("输入新场次行（如：第7场）：");
+  if (!input) return;
+  const s = input.trim();
+  if (!s) return;
+  if (sheetSlots.includes(s)) { shStatus("该场次已存在", true); return; }
+  sheetSlots.push(s);
+  sheetSlots.sort(shSortSlots);
+  shRender();
+  shStatus(`已添加场次 ${s}（点击「保存」发布）`);
+}
+function shDelRow(slot){
+  if (!confirm(`确定删除场次 ${slot} 及其全部排班数据？`)) return;
+  sheetSlots = sheetSlots.filter(s => s !== slot);
+  Object.keys(sheetSchedule).forEach(d => { delete sheetSchedule[d][slot]; });
+  shRender();
+  shStatus(`已删除场次 ${slot}（点击「保存」发布）`);
+}
 
+/* ---------- GitHub API + Token（复用 editor.html 逻辑） ---------- */
+function shToken(){ return (localStorage.getItem("gh_token") || "").trim(); }
+async function shGetSha(path){
+  const r = await fetch(SHEET_API + path, { headers: { Authorization: `Bearer ${shToken()}` } });
+  if (!r.ok) { if (r.status === 404) return null; throw new Error(`获取 ${path} 失败: HTTP ${r.status}`); }
+  const j = await r.json();
+  return j.sha || null;
+}
+async function shPut(path, content){
+  const sha = await shGetSha(path);
+  const body = { message: "Sheet 在线编辑排班表", content: btoa(unescape(encodeURIComponent(content))) };
+  if (sha) body.sha = sha;
+  const r = await fetch(SHEET_API + path, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${shToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { const j = await r.json(); msg = (j.message || "") + (j.errors ? " " + JSON.stringify(j.errors) : ""); } catch(e){}
+    throw new Error(`更新 ${path} 失败: ${msg}`);
+  }
+  return true;
+}
 
-def anchor_stats(schedule):
-    counter = Counter()
-    for d, slots in schedule.items():
-        for slot, info in slots.items():
-            name = info.get("anchor", "").strip()
-            if name:
-                counter[name] += 1
-    return counter.most_common()
-
-
-def latest_reminders(schedule):
-    """取最近一天的排班作为提醒列表，返回 (日期, [(时间, 主播, 场次), ...])"""
-    dates = sorted(schedule.keys())
-    if not dates:
-        return None, []
-    d = dates[-1]
-    items = []
-    for slot in SLOT_ORDER:
-        info = schedule[d].get(slot, {})
-        t = info.get("time", "").strip()
-        a = info.get("anchor", "").strip()
-        if t and a:
-            items.append((t, a, slot))
-    return d, items
-
-
-def render_html(schedule, cfg):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    dates = display_dates(cfg, schedule)
-    updated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    date_header = "".join(
-        f'<th class="date-col">{d[5:].replace("-", "/")}<span class="wd">{WEEKDAYS[datetime.strptime(d, "%Y-%m-%d").weekday()]}</span></th>'
-        for d in dates
-    )
-
-    # 场次行：每场次渲染 5 个角色行
-    rows = []
-    for slot in SLOT_ORDER:
-        for role_key, role_name in ROLES:
-            cells = []
-            for d in dates:
-                info = schedule.get(d, {}).get(slot, {})
-                val = info.get(role_key, "")
-                if val:
-                    cls = "cell"
-                    if role_key == "anchor":
-                        cls = "cell anchor"
-                    elif role_key == "car":
-                        cls = "cell car"
-                    elif role_key == "time":
-                        cls = "cell time"
-                    cells.append(f'<td class="{cls}">{val}</td>')
-                else:
-                    cells.append('<td class="cell empty">·</td>')
-            if role_key == "time":
-                row_label = f'<span class="slot-badge">{slot}</span>'
-                tr_cls = ' class="row-slot"'
-            else:
-                row_label = ""
-                tr_cls = ""
-            rows.append(
-                f'<tr{tr_cls}><td class="slot-col">{row_label}</td><td class="role-col">{role_name}</td>{"".join(cells)}</tr>'
-            )
-
-    counter = anchor_stats(schedule)
-    if counter:
-        stat_html = "".join(
-            f'<span class="chip">主播 <b>{name}</b> × {cnt} 场</span>' for name, cnt in counter
-        )
-    else:
-        stat_html = '<span class="chip">暂无数据</span>'
-
-    # 跑马灯：内容复制一份实现无缝循环
-    marquee_items_html = "".join(
-        f"<span>{item}</span>" for item in MARQUEE_ITEMS
-    )
-    marquee_html = (
-        f'<div class="marquee"><div class="marquee-track">{marquee_items_html}{marquee_items_html}</div></div>'
-    )
-
-    # 提醒卡片
-    remind_date, remind_items = latest_reminders(schedule)
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    if remind_items:
-        if remind_date == today_str:
-            remind_title = "今日提醒"
-            remind_sub = f'<span class="sub">按今天排班 · 到点自动提醒</span>'
-        else:
-            remind_title = "最近排班提醒"
-            remind_sub = f'<span class="sub">{remind_date} · 到点自动提醒</span>'
-        remind_list = "".join(
-            f'<div class="remind-item"><span class="remind-time">{t}</span><span><span class="remind-slot">{slot}</span> · <span class="remind-name">{a}</span></span></div>'
-            for t, a, slot in remind_items
-        )
-    else:
-        remind_title = "今日提醒"
-        remind_sub = '<span class="sub">暂无排班数据</span>'
-        remind_list = '<div class="remind-empty">今日暂无排班，添加数据后自动生成提醒</div>'
-
-    html = f"""<!DOCTYPE html>
+/* ---------- 生成完整页面（与 render_web.py render_html 一致） ---------- */
+function shLatestReminders(){
+  const dates = Object.keys(sheetSchedule).sort();
+  if (!dates.length) return [null, []];
+  const d = dates[dates.length - 1];
+  const items = [];
+  sheetSlots.forEach(slot => {
+    const info = (sheetSchedule[d] && sheetSchedule[d][slot]) || {};
+    const t = (info.time || "").trim();
+    const a = (info.anchor || "").trim();
+    if (t && a) items.push([t, a, slot]);
+  });
+  return [d, items];
+}
+function shChips(){
+  const counter = {};
+  Object.values(sheetSchedule).forEach(slots => Object.values(slots).forEach(info => {
+    const n = (info.anchor || "").trim();
+    if (n) counter[n] = (counter[n] || 0) + 1;
+  }));
+  return Object.entries(counter).map(([n, c]) => `<span class="chip">主播 <b>${shEscape(n)}</b> × ${c} 场</span>`).join("") || '<span class="chip">暂无数据</span>';
+}
+function shPage(updatedAt){
+  const dateHeader = sheetDates.map(d => {
+    const dt = shParse(d);
+    const wd = dt ? SHEET_WEEKDAYS[dt.getDay()] : "";
+    return `<th class="date-col">${shFmt(d)}<span class="wd">${wd}</span></th>`;
+  }).join("");
+  const rows = [];
+  sheetSlots.forEach(slot => {
+    SHEET_ROLES.forEach(([rk, rn]) => {
+      let cells = "";
+      sheetDates.forEach(d => {
+        const info = (sheetSchedule[d] && sheetSchedule[d][slot]) || {};
+        const val = info[rk] !== undefined ? info[rk] : "";
+        if (String(val).trim()) {
+          let cls = "cell";
+          if (rk === "anchor") cls = "cell anchor";
+          else if (rk === "car") cls = "cell car";
+          else if (rk === "time") cls = "cell time";
+          cells += `<td class="${cls}">${shEscape(val)}</td>`;
+        } else {
+          cells += '<td class="cell empty">·</td>';
+        }
+      });
+      const rowLabel = rk === "time" ? `<span class="slot-badge">${shEscape(slot)}</span>` : "";
+      const trCls = rk === "time" ? ' class="row-slot"' : "";
+      rows.push(`<tr${trCls}><td class="slot-col">${rowLabel}</td><td class="role-col">${rn}</td>${cells}</tr>`);
+    });
+  });
+  const marqueeItems = SHEET_MARQUEE.map(it => `<span>${it}</span>`).join("");
+  const marquee = `<div class="marquee"><div class="marquee-track">${marqueeItems}${marqueeItems}</div></div>`;
+  const [remindDate, remindItems] = shLatestReminders();
+  let remindTitle, remindSub, remindList;
+  if (remindItems.length) {
+    const today = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+    remindTitle = remindDate === todayStr ? "今日提醒" : "最近排班提醒";
+    remindSub = `<span class="sub">${shEscape(remindDate)} · 到点自动提醒</span>`;
+    remindList = remindItems.map(([t, a, s]) =>
+      `<div class="remind-item"><span class="remind-time">${shEscape(t)}</span><span><span class="remind-slot">${shEscape(s)}</span> · <span class="remind-name">${shEscape(a)}</span></span></div>`
+    ).join("");
+  } else {
+    remindTitle = "今日提醒";
+    remindSub = '<span class="sub">暂无排班数据</span>';
+    remindList = '<div class="remind-empty">今日暂无排班，添加数据后自动生成提醒</div>';
+  }
+  const sheetHtml = `<div class="sheet-panel" id="sheet-panel">
+  <div class="sheet-head">
+    <span class="sheet-title">Excel Sheet · 排班编辑</span>
+    <div class="sheet-actions">
+      <button id="sheet-add-col">＋列</button>
+      <button id="sheet-add-row">＋行</button>
+      <button class="sheet-save" id="sheet-save">保存</button>
+      <button id="sheet-collapse">收起</button>
+    </div>
+  </div>
+  <div class="sheet-wrap"><table class="sheet-table" id="sheet-table"></table></div>
+  <div class="sheet-status" id="sheet-status">加载中…</div>
+  <div class="sheet-token" id="sheet-token">
+    <input type="password" id="sheet-token-input" placeholder="GitHub Token（ghp_ 或 github_pat_ 开头）">
+    <div class="sheet-token-actions">
+      <button class="btn-primary" id="sheet-token-save">保存 Token</button>
+      <button id="sheet-token-clear">清除</button>
+    </div>
+  </div>
+</div>
+<script src="sheet.js"><\/script>`;
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -433,7 +520,7 @@ def render_html(schedule, cfg):
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>{CSS_TEMPLATE}</style>
+<style>${SHEET_CSS}</style>
 </head>
 <body>
 
@@ -445,7 +532,6 @@ def render_html(schedule, cfg):
 </nav>
 
 <main class="content">
-  <!-- Hero -->
   <section class="hero" id="top">
     <div class="hero-inner">
       <div class="hero-eyebrow">Schedule Reminder · 7X Official Live</div>
@@ -458,25 +544,23 @@ def render_html(schedule, cfg):
     </div>
   </section>
 
-  <!-- 跑马灯 -->
-  {marquee_html}
+  ${marquee}
 
-  <!-- 排班表 + 提醒 -->
   <div class="cards-grid">
     <section class="glass-card" id="schedule">
       <header class="card-head">
         <div>
           <h2>排班表</h2>
-          <p class="sub">数据更新 <time>{updated_at}</time></p>
+          <p class="sub">数据更新 <time>${updatedAt}</time></p>
         </div>
-        <div class="stats" id="stats">{stat_html}</div>
+        <div class="stats" id="stats">${shChips()}</div>
       </header>
       <div class="table-scroll">
         <table>
           <thead>
-            <tr><th class="col-slot">场次</th><th class="col-role">角色</th>{date_header}</tr>
+            <tr><th class="col-slot">场次</th><th class="col-role">角色</th>${dateHeader}</tr>
           </thead>
-          <tbody>{''.join(rows)}</tbody>
+          <tbody>${rows.join("")}</tbody>
         </table>
       </div>
     </section>
@@ -484,11 +568,11 @@ def render_html(schedule, cfg):
     <aside class="glass-card remind-card" id="reminder">
       <header class="card-head">
         <div>
-          <h2>{remind_title}</h2>
-          {remind_sub}
+          <h2>${remindTitle}</h2>
+          ${remindSub}
         </div>
       </header>
-      {remind_list}
+      ${remindList}
     </aside>
   </div>
 
@@ -497,17 +581,105 @@ def render_html(schedule, cfg):
     <span class="tag">Frosted 3D Style · Marvis Schedule</span>
   </div>
 </main>
-{SHEET_HTML}
+${sheetHtml}
 </body>
-</html>"""
-    html_path = os.path.join(OUTPUT_DIR, "schedule.html")
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"已生成: {html_path}")
-    return html_path
+</html>`;
+}
 
+/* ---------- 保存 ---------- */
+async function shSave(){
+  document.querySelectorAll("#sheet-table td.sheet-cell").forEach(td => {
+    const d = td.dataset.sd, s = td.dataset.ss, r = td.dataset.sr;
+    if (!sheetSchedule[d]) sheetSchedule[d] = {};
+    if (!sheetSchedule[d][s]) sheetSchedule[d][s] = {};
+    sheetSchedule[d][s][r] = td.innerText.trim();
+  });
+  const clean = {};
+  Object.keys(sheetSchedule).sort().forEach(d => {
+    const slots = {};
+    Object.keys(sheetSchedule[d]).forEach(s => {
+      const info = {};
+      let has = false;
+      SHEET_ROLES.forEach(([rk]) => {
+        const v = (sheetSchedule[d][s][rk] || "").trim();
+        info[rk] = v;
+        if (v) has = true;
+      });
+      if (has) slots[s] = info;
+    });
+    if (Object.keys(slots).length) clean[d] = slots;
+  });
+  sheetSchedule = clean;
+  sheetCfg.display_dates = sheetDates.slice();
 
-if __name__ == "__main__":
-    cfg = load_config()
-    schedule = load_schedule()
-    render_html(schedule, cfg)
+  if (!shToken()) {
+    $sh("sheet-token").style.display = "block";
+    shStatus("请先输入 GitHub Token 后保存", true);
+    $sh("sheet-token-input").focus();
+    return;
+  }
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const updatedAt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const html = shPage(updatedAt);
+
+  shStatus("正在保存并发布…");
+  const btn = $sh("sheet-save");
+  if (btn) btn.disabled = true;
+  try {
+    await shPut("schedule.json", JSON.stringify(sheetSchedule, null, 2) + "\n");
+    await shPut("config.json", JSON.stringify(sheetCfg, null, 2) + "\n");
+    await shPut("index.html", html);
+    await shPut("output/schedule.html", html);
+    shStatus("保存成功！GitHub Pages 约 1~2 分钟后自动更新。");
+  } catch (e) {
+    shStatus(e.message, true);
+    if (/Bad credentials|401/.test(e.message)) $sh("sheet-token").style.display = "block";
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/* ---------- 初始化 ---------- */
+function shInit(){
+  const p = $sh("sheet-panel");
+  const addCol = $sh("sheet-add-col");
+  const addRow = $sh("sheet-add-row");
+  const save = $sh("sheet-save");
+  const collapse = $sh("sheet-collapse");
+  if (!p || !addCol || !addRow || !save || !collapse) return;
+  addCol.addEventListener("click", shAddCol);
+  addRow.addEventListener("click", shAddRow);
+  save.addEventListener("click", shSave);
+  collapse.addEventListener("click", () => {
+    const collapsed = p.classList.toggle("collapsed");
+    const w = $sh("sheet-wrap"), st = $sh("sheet-status"), tk = $sh("sheet-token");
+    if (w) w.style.display = collapsed ? "none" : "";
+    if (st) st.style.display = collapsed ? "none" : "";
+    if (tk) tk.style.display = collapsed ? "none" : "";
+    collapse.textContent = collapsed ? "展开" : "收起";
+  });
+  const tkSave = $sh("sheet-token-save");
+  const tkClear = $sh("sheet-token-clear");
+  if (tkSave) tkSave.addEventListener("click", () => {
+    const t = ($sh("sheet-token-input").value || "").trim();
+    if (!t) { shStatus("Token 不能为空", true); return; }
+    localStorage.setItem("gh_token", t);
+    $sh("sheet-token").style.display = "none";
+    $sh("sheet-token-input").value = "";
+    shStatus("Token 已保存（仅本浏览器有效）");
+  });
+  if (tkClear) tkClear.addEventListener("click", () => {
+    localStorage.removeItem("gh_token");
+    $sh("sheet-token-input").value = "";
+    shStatus("Token 已清除");
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => { shInit(); shLoad(); });
+} else {
+  shInit();
+  shLoad();
+}
