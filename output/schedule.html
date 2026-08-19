@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>直播排班表</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6fa; color: #2d3436; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+  header { text-align: center; padding: 32px 0 24px; }
+  header h1 { font-size: 28px; color: #1a1a2e; }
+  header p { color: #7f8c8d; margin-top: 8px; }
+  .stat-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 32px; }
+  .stat-chip { background: #fff; border: 1px solid #e1e5ec; border-radius: 20px; padding: 6px 14px; font-size: 14px; color: #2d3436; }
+  .month-section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); padding: 24px; margin-bottom: 24px; }
+  .month-section h2 { font-size: 20px; color: #1a1a2e; margin-bottom: 16px; border-left: 4px solid #0984e3; padding-left: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #e8ecf1; padding: 10px 8px; text-align: center; font-size: 14px; }
+  th { background: #0984e3; color: #fff; font-weight: 600; }
+  .date-cell { background: #fafbfc; font-weight: 600; width: 110px; }
+  .weekday { font-size: 12px; color: #7f8c8d; font-weight: 400; }
+  .slot-cell { vertical-align: top; }
+  .slot-time { font-size: 12px; color: #0984e3; font-weight: 600; margin-bottom: 6px; }
+  .name { display: inline-block; background: #eef5fd; border-radius: 6px; padding: 2px 8px; margin: 2px; font-size: 13px; }
+  .empty-cell { color: #b2bec3; }
+  footer { text-align: center; color: #b2bec3; font-size: 12px; padding: 16px 0 32px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>直播排班表</h1>
+    <p>数据更新时间：2026-08-19 09:26 · 周末/节假日自动留空</p>
+  </header>
+  <div class="stat-bar"><span class="stat-chip">8X × 25</span><span class="stat-chip">肖肖 × 15</span><span class="stat-chip">宸婕 × 15</span><span class="stat-chip">王子赫 × 10</span><span class="stat-chip">周芷菱 × 10</span><span class="stat-chip">雨龙 × 10</span><span class="stat-chip">徐光辉 × 6</span><span class="stat-chip">李婉仪 × 6</span><span class="stat-chip">游棋红 × 6</span><span class="stat-chip">曾还辉 × 4</span><span class="stat-chip">管靖源 × 3</span><span class="stat-chip">蔡远威 × 3</span><span class="stat-chip">李思浔 × 2</span></div>
+  
+        <section class="month-section">
+          <h2>2026年8月</h2>
+          <table>
+            <thead>
+              <tr><th>日期</th><th>10:00-12:00</th><th>12:00-14:30</th><th>14:30-17:00</th><th>17:00-19:30</th><th>19:30-22:00</th></tr>
+            </thead>
+            <tbody>
+            <tr>
+              <td class="date-cell">2026-08-17<br><span class="weekday">周一</span></td>
+              <td class="slot-cell"><div class="slot-time">10:00-12:00</div><span class="name">8X</span><br><span class="name">李思浔</span><br><span class="name">肖肖|宸婕</span><br><span class="name">徐光辉</span></td><td class="slot-cell"><div class="slot-time">12:00-14:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">肖肖|宸婕</span><br><span class="name">徐光辉</span></td><td class="slot-cell"><div class="slot-time">14:30-17:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">肖肖|宸婕</span><br><span class="name">徐光辉</span></td><td class="slot-cell"><div class="slot-time">17:00-19:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">雨龙</span><br><span class="name">李婉仪</span></td><td class="slot-cell"><div class="slot-time">19:30-22:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">雨龙</span><br><span class="name">李婉仪</span></td>
+            </tr>
+            <tr>
+              <td class="date-cell">2026-08-18<br><span class="weekday">周二</span></td>
+              <td class="slot-cell"><div class="slot-time">10:00-12:00</div><span class="name">8X</span><br><span class="name">李思浔</span><br><span class="name">肖肖|宸婕</span><br><span class="name">徐光辉</span></td><td class="slot-cell"><div class="slot-time">12:00-14:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">肖肖|宸婕</span><br><span class="name">徐光辉</span></td><td class="slot-cell"><div class="slot-time">14:30-17:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">肖肖|宸婕</span><br><span class="name">徐光辉</span></td><td class="slot-cell"><div class="slot-time">17:00-19:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">雨龙</span><br><span class="name">曾还辉</span></td><td class="slot-cell"><div class="slot-time">19:30-22:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">雨龙</span><br><span class="name">曾还辉</span></td>
+            </tr>
+            <tr>
+              <td class="date-cell">2026-08-19<br><span class="weekday">周三</span></td>
+              <td class="slot-cell"><div class="slot-time">10:00-12:00</div><span class="name">8X</span><br><span class="name">管靖源</span><br><span class="name">肖肖|宸婕</span><br><span class="name">游棋红</span></td><td class="slot-cell"><div class="slot-time">12:00-14:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">肖肖|宸婕</span><br><span class="name">游棋红</span></td><td class="slot-cell"><div class="slot-time">14:30-17:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">肖肖|宸婕</span><br><span class="name">游棋红</span></td><td class="slot-cell"><div class="slot-time">17:00-19:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">雨龙</span><br><span class="name">李婉仪</span></td><td class="slot-cell"><div class="slot-time">19:30-22:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">雨龙</span><br><span class="name">李婉仪</span></td>
+            </tr>
+            <tr>
+              <td class="date-cell">2026-08-20<br><span class="weekday">周四</span></td>
+              <td class="slot-cell"><div class="slot-time">10:00-12:00</div><span class="name">8X</span><br><span class="name">管靖源</span><br><span class="name">肖肖|宸婕</span><br><span class="name">游棋红</span></td><td class="slot-cell"><div class="slot-time">12:00-14:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">肖肖|宸婕</span><br><span class="name">游棋红</span></td><td class="slot-cell"><div class="slot-time">14:30-17:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">肖肖|宸婕</span><br><span class="name">游棋红</span></td><td class="slot-cell"><div class="slot-time">17:00-19:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">雨龙</span><br><span class="name">曾还辉</span></td><td class="slot-cell"><div class="slot-time">19:30-22:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">雨龙</span><br><span class="name">曾还辉</span></td>
+            </tr>
+            <tr>
+              <td class="date-cell">2026-08-21<br><span class="weekday">周五</span></td>
+              <td class="slot-cell"><div class="slot-time">10:00-12:00</div><span class="name">8X</span><br><span class="name">管靖源</span><br><span class="name">肖肖|宸婕</span><br><span class="name">蔡远威</span></td><td class="slot-cell"><div class="slot-time">12:00-14:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">肖肖|宸婕</span><br><span class="name">蔡远威</span></td><td class="slot-cell"><div class="slot-time">14:30-17:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">肖肖|宸婕</span><br><span class="name">蔡远威</span></td><td class="slot-cell"><div class="slot-time">17:00-19:30</div><span class="name">8X</span><br><span class="name">王子赫</span><br><span class="name">雨龙</span><br><span class="name">李婉仪</span></td><td class="slot-cell"><div class="slot-time">19:30-22:00</div><span class="name">8X</span><br><span class="name">周芷菱</span><br><span class="name">雨龙</span><br><span class="name">李婉仪</span></td>
+            </tr></tbody>
+          </table>
+        </section>
+  <footer>Generated by Marvis Schedule Reminder</footer>
+</div>
+</body>
+</html>
