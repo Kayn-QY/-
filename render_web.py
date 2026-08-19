@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""网页排班表渲染：模仿原 Excel 表格结构（日期横向、场次纵向、角色行）
-设计风格：毛玻璃 3D 版（Frosted Glass + 3D Depth）—— 磨砂玻璃背景 + 圆角毛玻璃框 + 外投影/内高光立体感
-参考视觉稿：design-direction-v2.html（整体背景磨砂朦胧、内容框 backdrop-filter blur + 半透明渐变 + 1px 半透明白描边、3D 外投影 + inset 高光）
+"""网页排班表渲染：极氪日播间排班 · 多直播间版
+支持 7X / 8X / 9X / 猎装 四个直播间（后续可增加），左下角 Excel 式 Sheet 标签切换。
+设计风格：毛玻璃 3D 版（Frosted Glass + 3D Depth）
+数据层：schedule.json = {room: {date: {slot: {role: value}}}}
+注意：CSS_TEMPLATE 与 editor.html 中 CSS_VIEW、PAGE_JS 需保持一致。
 """
 import json
 import os
@@ -23,8 +25,9 @@ ROLES = [
     ("ad", "投流"),
 ]
 SLOT_ORDER = ["第1场", "第2场", "第3场", "第4场", "第5场", "第6场"]
-
 MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"]
+SITE_TITLE = "极氪日播间排班"
+DEFAULT_ROOMS = ["7X", "8X", "9X", "猎装"]
 
 CSS_TEMPLATE = """
 :root{
@@ -187,6 +190,35 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 /* 底部说明 */
 .note{margin-top:20px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0 4px}
 .note .tag{letter-spacing:.06em;text-transform:uppercase;font-size:10.5px;color:rgba(74,90,114,.75)}
+/* 左下角 Excel 式 Sheet 标签栏 */
+.sheet-bar{
+  position:fixed;left:20px;bottom:20px;z-index:120;display:flex;align-items:center;gap:6px;
+  padding:8px 10px;border-radius:18px;max-width:calc(100vw - 40px);overflow-x:auto;
+  background:linear-gradient(135deg, rgba(255,255,255,.66), rgba(255,255,255,.42));
+  backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 18px 40px rgba(20,30,50,.24), inset 0 1px 0 rgba(255,255,255,.9);
+  font-family:var(--font-sans);
+}
+.sheet-tab{
+  border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:#334155;
+  border-radius:12px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+  box-shadow:inset 0 1px 0 #fff;transition:all .2s ease;font-family:var(--font-sans);
+}
+.sheet-tab:hover{background:rgba(255,255,255,.75)}
+.sheet-tab.active{
+  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent;
+  box-shadow:0 8px 18px rgba(10,27,51,.35);
+}
+.sheet-add{
+  display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;
+  border:1px dashed rgba(144,88,49,.6);background:rgba(255,255,255,.35);color:var(--clay);
+  border-radius:12px;font-size:18px;line-height:1;cursor:pointer;transition:all .2s;font-family:var(--font-sans);
+}
+.sheet-add:hover{background:rgba(144,88,49,.18);border-style:solid}
+/* 直播间独立表格 */
+.room-table{display:none}
+.room-table.active{display:block;animation:rise .4s cubic-bezier(.16,1,.3,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:1024px){
@@ -198,7 +230,210 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .pill-nav a{padding:7px 12px;font-size:12px}
   .hero-inner{padding:40px 24px}
   .glass-card{padding:18px 14px;border-radius:20px}
+  .sheet-bar{left:12px;bottom:12px;max-width:calc(100vw - 24px)}
 }
+"""
+
+# 页面内嵌 JS：切换直播间 + 新增直播间 + 重新渲染（与 editor.html 中 PAGE_JS 保持一致，禁止使用反引号/模板字符串）
+PAGE_JS = r"""
+"use strict";
+var WEEKDAYS_JS = ["周一","周二","周三","周四","周五","周六","周日"];
+var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"],["tech","技术"],["ad","投流"]];
+var SLOT_ORDER_JS = ["第1场","第2场","第3场","第4场","第5场","第6场"];
+var MARQUEE_JS = ["Bilibili","GitHub","Vercel","Figma","Notion","Slack"];
+
+var SCHEDULE = __SCHEDULE_JSON__;
+var CFG = __CFG_JSON__;
+var ROOMS = (CFG.rooms && CFG.rooms.length) ? CFG.rooms.slice() : Object.keys(SCHEDULE);
+var CSS_TEMPLATE_JS = __CSS_TEMPLATE_JSON__;
+var PAGE_JS_SRC = __PAGE_JS_JSON__;
+
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmtD(d){ return d.slice(5).replace("-", "/"); }
+function parseD(s){ var m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/); if (m) return new Date(+m[1], +m[2]-1, +m[3]); return null; }
+function weekOf(d){ var dt = parseD(d); return dt ? WEEKDAYS_JS[dt.getDay()] : ""; }
+
+function displayDatesFor(){
+  var dates = (CFG.display_dates && CFG.display_dates.length) ? CFG.display_dates.slice() : [];
+  ROOMS.forEach(function(r){
+    var data = SCHEDULE[r] || {};
+    Object.keys(data).forEach(function(d){ if (dates.indexOf(d) < 0) dates.push(d); });
+  });
+  dates.sort();
+  return dates;
+}
+
+function buildRoomTable(room){
+  var dates = displayDatesFor();
+  var data = SCHEDULE[room] || {};
+  var dateHeader = dates.map(function(d){ return '<th class="date-col">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
+  var rows = [];
+  SLOT_ORDER_JS.forEach(function(slot){
+    ROLES_JS.forEach(function(pair){
+      var rk = pair[0], rn = pair[1];
+      var cells = "";
+      dates.forEach(function(d){
+        var val = "";
+        if (data[d] && data[d][slot] && data[d][slot][rk] !== undefined) val = data[d][slot][rk];
+        if (val){
+          var cls = "cell";
+          if (rk === "anchor") cls = "cell anchor";
+          else if (rk === "car") cls = "cell car";
+          else if (rk === "time") cls = "cell time";
+          cells += '<td class="' + cls + '">' + esc(val) + '</td>';
+        } else {
+          cells += '<td class="cell empty">·</td>';
+        }
+      });
+      var rowLabel = rk === "time" ? '<span class="slot-badge">' + slot + '</span>' : "";
+      var trCls = rk === "time" ? ' class="row-slot"' : "";
+      rows.push('<tr' + trCls + '><td class="slot-col">' + rowLabel + '</td><td class="role-col">' + rn + '</td>' + cells + '</tr>');
+    });
+  });
+  return '<div class="room-table" data-room="' + esc(room) + '"><div class="table-scroll"><table><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>' + dateHeader + '</tr></thead><tbody>' + rows.join("") + '</tbody></table></div></div>';
+}
+
+function buildTabs(){
+  return ROOMS.map(function(r, i){
+    return '<button class="sheet-tab' + (i === 0 ? " active" : "") + '" data-room="' + esc(r) + '">' + esc(r) + '</button>';
+  }).join("") + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>';
+}
+
+function buildStats(room){
+  var data = SCHEDULE[room] || {};
+  var counter = {};
+  Object.keys(data).forEach(function(d){
+    if (!data[d] || typeof data[d] !== "object") return;
+    Object.keys(data[d]).forEach(function(s){
+      var n = (data[d][s].anchor || "").trim();
+      if (n) counter[n] = (counter[n] || 0) + 1;
+    });
+  });
+  var arr = Object.keys(counter).map(function(n){ return '<span class="chip">主播 <b>' + esc(n) + '</b> × ' + counter[n] + ' 场</span>'; });
+  return arr.join("") || '<span class="chip">暂无数据</span>';
+}
+
+function buildRemind(){
+  var items = [];
+  ROOMS.forEach(function(room){
+    var data = SCHEDULE[room] || {};
+    var dates = Object.keys(data).sort();
+    if (!dates.length) return;
+    var d = dates[dates.length - 1];
+    SLOT_ORDER_JS.forEach(function(slot){
+      var info = (data[d] && data[d][slot]) || {};
+      var t = (info.time || "").trim();
+      var a = (info.anchor || "").trim();
+      if (t && a) items.push([room, d, t, a, slot]);
+    });
+  });
+  if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
+  return items.map(function(it){
+    return '<div class="remind-item"><span class="remind-time">' + esc(it[0]) + ' · ' + esc(it[2]) + '</span><span><span class="remind-slot">' + esc(it[4]) + '</span> · <span class="remind-name">' + esc(it[3]) + '</span></span></div>';
+  }).join("");
+}
+
+function renderHtml(updatedAt){
+  var roomTables = ROOMS.map(buildRoomTable).join("");
+  var tabs = buildTabs();
+  var statsAll = ROOMS.map(function(r, i){
+    return '<div class="stats" data-stats-for="' + esc(r) + '"' + (i === 0 ? "" : ' style="display:none"') + '>' + buildStats(r) + '</div>';
+  }).join("");
+  var marqueeItems = MARQUEE_JS.map(function(it){ return '<span>' + it + '</span>'; }).join("");
+  var marquee = '<div class="marquee"><div class="marquee-track">' + marqueeItems + marqueeItems + '</div></div>';
+  var remindList = buildRemind();
+  var h = "";
+  h += '<!DOCTYPE html>\n';
+  h += '<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
+  h += '<title>极氪日播间排班 · 多直播间</title>\n';
+  h += '<link rel="preconnect" href="https://fonts.googleapis.com">\n';
+  h += '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n';
+  h += '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n';
+  h += '<style>__CSS_TEMPLATE__</style>\n</head>\n<body>\n';
+  h += '<nav class="pill-nav">\n  <a class="active" href="#schedule">排班表</a>\n  <a href="#reminder">提醒</a>\n  <a href="#help">说明</a>\n  <a href="editor.html" target="_blank">在线编辑</a>\n</nav>\n';
+  h += '<main class="content">\n';
+  h += '  <section class="hero" id="top">\n    <div class="hero-inner">\n';
+  h += '      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>\n';
+  h += '      <h1>极氪日播间排班</h1>\n';
+  h += '      <p class="hero-sub">7X · 8X · 9X · 猎装 多直播间独立排班 · 主播开播准时提醒</p>\n';
+  h += '      <div class="hero-actions">\n        <a class="btn-primary" href="#schedule">查看排班</a>\n        <a class="btn-glass" href="#help">如何设置</a>\n      </div>\n    </div>\n  </section>\n';
+  h += '  ' + marquee + '\n';
+  h += '  <div class="cards-grid">\n';
+  h += '    <section class="glass-card" id="schedule">\n      <header class="card-head">\n';
+  h += '        <div>\n          <h2>排班表</h2>\n          <p class="sub">数据更新 <time>' + esc(updatedAt) + '</time></p>\n        </div>\n';
+  h += '        <div class="stats-wrap">' + statsAll + '</div>\n      </header>\n';
+  h += '      <div class="room-tables">' + roomTables + '</div>\n    </section>\n';
+  h += '    <aside class="glass-card remind-card" id="reminder">\n      <header class="card-head">\n';
+  h += '        <div>\n          <h2>最近排班提醒</h2>\n          <p class="sub">全部直播间 · 到点自动提醒</p>\n        </div>\n      </header>\n';
+  h += '      ' + remindList + '\n    </aside>\n  </div>\n';
+  h += '  <div class="note" id="help">\n';
+  h += '    <span>深蓝为主播 · 赤陶为车型 · 圆点为未排班（周末/节假日/未填写）</span>\n';
+  h += '    <span class="tag">Frosted 3D Style · Marvis Schedule</span>\n  </div>\n';
+  h += '</main>\n';
+  h += '<div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n';
+  h += '<script>__PAGE_JS__</' + 'script>\n';
+  h += '</body>\n</html>';
+  return h;
+}
+
+function switchRoom(room){
+  document.querySelectorAll(".sheet-tab").forEach(function(t){ t.classList.toggle("active", t.dataset.room === room); });
+  document.querySelectorAll(".room-table").forEach(function(t){ t.classList.toggle("active", t.dataset.room === room); });
+  document.querySelectorAll("[data-stats-for]").forEach(function(s){ s.style.display = (s.dataset.statsFor === room) ? "" : "none"; });
+}
+
+function ghGetSha(path){
+  var token = (localStorage.getItem("gh_token") || "").trim();
+  return fetch("https://api.github.com/repos/Kayn-QY/-/contents/" + path, { headers: { Authorization: "Bearer " + token } })
+    .then(function(r){ if (!r.ok) { if (r.status === 404) return null; throw new Error("获取 " + path + " 失败: HTTP " + r.status); } return r.json(); })
+    .then(function(j){ return j ? j.sha : null; });
+}
+function ghPut(path, content){
+  return ghGetSha(path).then(function(sha){
+    var body = { message: "在线编辑排班表", content: btoa(unescape(encodeURIComponent(content))) };
+    if (sha) body.sha = sha;
+    return fetch("https://api.github.com/repos/Kayn-QY/-/contents/" + path, {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + (localStorage.getItem("gh_token") || "").trim(), "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      if (!r.ok) { throw new Error("更新 " + path + " 失败: HTTP " + r.status); }
+    });
+  });
+}
+
+function addRoom(){
+  var name = prompt("输入新直播间名称：");
+  if (!name) return;
+  var room = name.trim();
+  if (!room) { alert("直播间名称不能为空"); return; }
+  if (ROOMS.indexOf(room) >= 0) { alert("直播间「" + room + "」已存在"); return; }
+  var token = (localStorage.getItem("gh_token") || "").trim();
+  if (!token) { alert("新增直播间需要 GitHub Token（请先在在线编辑器保存 Token 后重试）。"); window.open("editor.html", "_blank"); return; }
+  SCHEDULE[room] = {};
+  CFG.rooms = ROOMS.concat([room]);
+  ROOMS = CFG.rooms.slice();
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2, "0"); };
+  var updatedAt = now.getFullYear() + "-" + pad(now.getMonth()+1) + "-" + pad(now.getDate()) + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+  var html = renderHtml(updatedAt).replace("__CSS_TEMPLATE__", CSS_TEMPLATE_JS).replace("__PAGE_JS__", PAGE_JS_SRC);
+  ghPut("schedule.json", JSON.stringify(SCHEDULE, null, 2) + "\n")
+    .then(function(){ return ghPut("config.json", JSON.stringify(CFG, null, 2) + "\n"); })
+    .then(function(){ return ghPut("index.html", html); })
+    .then(function(){ return ghPut("output/schedule.html", html); })
+    .then(function(){ alert("已新增直播间「" + room + "」，刷新后生效"); location.reload(); })
+    .catch(function(e){ alert("新增失败: " + e.message); });
+}
+
+function initRoomPage(){
+  document.addEventListener("click", function(e){
+    var tab = e.target.closest(".sheet-tab");
+    if (tab) { switchRoom(tab.dataset.room); return; }
+    var add = e.target.closest("#btn-add-room");
+    if (add) { addRoom(); return; }
+  });
+}
+initRoomPage();
 """
 
 
@@ -214,11 +449,35 @@ def load_schedule():
         return json.load(f)
 
 
-def display_dates(cfg, schedule):
-    """确定展示的日期列：优先用配置，否则用数据范围"""
+def migrate_schedule(schedule):
+    """旧结构 {date: {...}} → {"7X": {...}}，并补齐默认直播间"""
+    if not isinstance(schedule, dict):
+        return {r: {} for r in DEFAULT_ROOMS}
+    keys = list(schedule.keys())
+    is_old = bool(keys) and any("-" in k for k in keys) and not any(k in DEFAULT_ROOMS for k in keys)
+    if is_old:
+        return {"7X": schedule, "8X": {}, "9X": {}, "猎装": {}}
+    result = dict(schedule)
+    for r in DEFAULT_ROOMS:
+        result.setdefault(r, {})
+    return result
+
+
+def rooms_of(cfg, schedule):
+    rooms = cfg.get("rooms") or []
+    if not rooms:
+        rooms = [r for r in DEFAULT_ROOMS if r in schedule] or DEFAULT_ROOMS
+    return rooms
+
+
+def display_dates(cfg, schedule, rooms):
+    """确定展示的日期列：优先用配置，否则合并所有房间数据范围"""
     if cfg.get("display_dates"):
         return cfg["display_dates"]
-    dates = sorted(schedule.keys())
+    all_dates = set()
+    for room in rooms:
+        all_dates.update(schedule.get(room, {}).keys())
+    dates = sorted(all_dates)
     if not dates:
         return []
     start, end = datetime.strptime(dates[0], "%Y-%m-%d"), datetime.strptime(dates[-1], "%Y-%m-%d")
@@ -230,49 +489,17 @@ def display_dates(cfg, schedule):
     return result
 
 
-def anchor_stats(schedule):
-    counter = Counter()
-    for d, slots in schedule.items():
-        for slot, info in slots.items():
-            name = info.get("anchor", "").strip()
-            if name:
-                counter[name] += 1
-    return counter.most_common()
-
-
-def latest_reminders(schedule):
-    """取最近一天的排班作为提醒列表，返回 (日期, [(时间, 主播, 场次), ...])"""
-    dates = sorted(schedule.keys())
-    if not dates:
-        return None, []
-    d = dates[-1]
-    items = []
-    for slot in SLOT_ORDER:
-        info = schedule[d].get(slot, {})
-        t = info.get("time", "").strip()
-        a = info.get("anchor", "").strip()
-        if t and a:
-            items.append((t, a, slot))
-    return d, items
-
-
-def render_html(schedule, cfg):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    dates = display_dates(cfg, schedule)
-    updated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-
+def build_room_table_html(room, data, dates):
     date_header = "".join(
         f'<th class="date-col">{d[5:].replace("-", "/")}<span class="wd">{WEEKDAYS[datetime.strptime(d, "%Y-%m-%d").weekday()]}</span></th>'
         for d in dates
     )
-
-    # 场次行：每场次渲染 5 个角色行
     rows = []
     for slot in SLOT_ORDER:
         for role_key, role_name in ROLES:
             cells = []
             for d in dates:
-                info = schedule.get(d, {}).get(slot, {})
+                info = data.get(d, {}).get(slot, {})
                 val = info.get(role_key, "")
                 if val:
                     cls = "cell"
@@ -285,57 +512,98 @@ def render_html(schedule, cfg):
                     cells.append(f'<td class="{cls}">{val}</td>')
                 else:
                     cells.append('<td class="cell empty">·</td>')
-            if role_key == "time":
-                row_label = f'<span class="slot-badge">{slot}</span>'
-                tr_cls = ' class="row-slot"'
-            else:
-                row_label = ""
-                tr_cls = ""
+            row_label = f'<span class="slot-badge">{slot}</span>' if role_key == "time" else ""
+            tr_cls = ' class="row-slot"' if role_key == "time" else ""
             rows.append(
                 f'<tr{tr_cls}><td class="slot-col">{row_label}</td><td class="role-col">{role_name}</td>{"".join(cells)}</tr>'
             )
-
-    counter = anchor_stats(schedule)
-    if counter:
-        stat_html = "".join(
-            f'<span class="chip">主播 <b>{name}</b> × {cnt} 场</span>' for name, cnt in counter
-        )
-    else:
-        stat_html = '<span class="chip">暂无数据</span>'
-
-    # 跑马灯：内容复制一份实现无缝循环
-    marquee_items_html = "".join(
-        f"<span>{item}</span>" for item in MARQUEE_ITEMS
+    return (
+        f'<div class="room-table" data-room="{room}">'
+        f'<div class="table-scroll"><table>'
+        f'<thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>{date_header}</tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div></div>'
     )
+
+
+def build_stats_html(data):
+    counter = Counter()
+    for d, slots in data.items():
+        if not isinstance(slots, dict):
+            continue
+        for slot, info in slots.items():
+            name = (info.get("anchor", "") or "").strip()
+            if name:
+                counter[name] += 1
+    if counter:
+        return "".join(
+            f'<span class="chip">主播 <b>{name}</b> × {cnt} 场</span>' for name, cnt in counter.most_common()
+        )
+    return '<span class="chip">暂无数据</span>'
+
+
+def build_remind_html(schedule, rooms):
+    items = []
+    for room in rooms:
+        data = schedule.get(room, {})
+        dates = sorted(data.keys())
+        if not dates:
+            continue
+        d = dates[-1]
+        for slot in SLOT_ORDER:
+            info = data[d].get(slot, {})
+            t = (info.get("time", "") or "").strip()
+            a = (info.get("anchor", "") or "").strip()
+            if t and a:
+                items.append((room, d, t, a, slot))
+    if not items:
+        return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>'
+    return "".join(
+        f'<div class="remind-item"><span class="remind-time">{room} · {t}</span>'
+        f'<span><span class="remind-slot">{slot}</span> · <span class="remind-name">{a}</span></span></div>'
+        for room, d, t, a, slot in items
+    )
+
+
+def render_html(schedule, cfg):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    schedule = migrate_schedule(schedule)
+    rooms = rooms_of(cfg, schedule)
+    dates = display_dates(cfg, schedule, rooms)
+    updated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    room_tables = "".join(
+        build_room_table_html(room, schedule.get(room, {}), dates) for room in rooms
+    )
+    tabs = "".join(
+        f'<button class="sheet-tab{" active" if i == 0 else ""}" data-room="{room}">{room}</button>'
+        for i, room in enumerate(rooms)
+    ) + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>'
+    _stats_parts = []
+    for _i, room in enumerate(rooms):
+        _hide = " style=\"display:none\"" if _i != 0 else ""
+        _stats_parts.append(f'<div class="stats" data-stats-for="{room}"{_hide}>{build_stats_html(schedule.get(room, {}))}</div>')
+    stats_all = "".join(_stats_parts)
+    remind_list = build_remind_html(schedule, rooms)
+
+    marquee_items_html = "".join(f"<span>{item}</span>" for item in MARQUEE_ITEMS)
     marquee_html = (
         f'<div class="marquee"><div class="marquee-track">{marquee_items_html}{marquee_items_html}</div></div>'
     )
 
-    # 提醒卡片
-    remind_date, remind_items = latest_reminders(schedule)
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    if remind_items:
-        if remind_date == today_str:
-            remind_title = "今日提醒"
-            remind_sub = f'<span class="sub">按今天排班 · 到点自动提醒</span>'
-        else:
-            remind_title = "最近排班提醒"
-            remind_sub = f'<span class="sub">{remind_date} · 到点自动提醒</span>'
-        remind_list = "".join(
-            f'<div class="remind-item"><span class="remind-time">{t}</span><span><span class="remind-slot">{slot}</span> · <span class="remind-name">{a}</span></span></div>'
-            for t, a, slot in remind_items
-        )
-    else:
-        remind_title = "今日提醒"
-        remind_sub = '<span class="sub">暂无排班数据</span>'
-        remind_list = '<div class="remind-empty">今日暂无排班，添加数据后自动生成提醒</div>'
+    def _js_json(obj):
+        return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
+
+    page_js = PAGE_JS.replace("__SCHEDULE_JSON__", _js_json(schedule))
+    page_js = page_js.replace("__CFG_JSON__", _js_json(cfg))
+    page_js = page_js.replace("__CSS_TEMPLATE_JSON__", _js_json(CSS_TEMPLATE))
+    page_js = page_js.replace("__PAGE_JS_JSON__", _js_json(PAGE_JS))
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>【7X官方直播间】直播排班表</title>
+<title>极氪日播间排班 · 多直播间</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -354,9 +622,9 @@ def render_html(schedule, cfg):
   <!-- Hero -->
   <section class="hero" id="top">
     <div class="hero-inner">
-      <div class="hero-eyebrow">Schedule Reminder · 7X Official Live</div>
-      <h1>排班一眼看清，提醒准时到达</h1>
-      <p class="hero-sub">直播排班 · 角色分工 · 每日提醒，一站掌握 7X 官方直播间全流程。</p>
+      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>
+      <h1>极氪日播间排班</h1>
+      <p class="hero-sub">7X · 8X · 9X · 猎装 多直播间独立排班 · 主播开播准时提醒</p>
       <div class="hero-actions">
         <a class="btn-primary" href="#schedule">查看排班</a>
         <a class="btn-glass" href="#help">如何设置</a>
@@ -375,23 +643,16 @@ def render_html(schedule, cfg):
           <h2>排班表</h2>
           <p class="sub">数据更新 <time>{updated_at}</time></p>
         </div>
-        <div class="stats" id="stats">{stat_html}</div>
+        <div class="stats-wrap">{stats_all}</div>
       </header>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr><th class="col-slot">场次</th><th class="col-role">角色</th>{date_header}</tr>
-          </thead>
-          <tbody>{''.join(rows)}</tbody>
-        </table>
-      </div>
+      <div class="room-tables">{room_tables}</div>
     </section>
 
     <aside class="glass-card remind-card" id="reminder">
       <header class="card-head">
         <div>
-          <h2>{remind_title}</h2>
-          {remind_sub}
+          <h2>最近排班提醒</h2>
+          <p class="sub">全部直播间 · 到点自动提醒</p>
         </div>
       </header>
       {remind_list}
@@ -403,6 +664,14 @@ def render_html(schedule, cfg):
     <span class="tag">Frosted 3D Style · Marvis Schedule</span>
   </div>
 </main>
+
+<div class="sheet-bar" id="sheet-bar">
+  {tabs}
+</div>
+
+<script>
+{page_js}
+</script>
 </body>
 </html>"""
     html_path = os.path.join(OUTPUT_DIR, "schedule.html")

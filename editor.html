@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>排班表 · 在线编辑</title>
+<title>极氪日播间排班 · 在线编辑</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -62,6 +62,25 @@ body{
 .card-head h1{font-family:var(--font-display);font-size:clamp(20px,2.4vw,28px);font-weight:700;letter-spacing:-.01em;line-height:1.15;color:#0f1e3d}
 .card-head .sub{margin-top:6px;font-size:13px;color:var(--text-muted)}
 .card-head .sub time{color:var(--text-main);font-weight:500}
+/* 直播间切换（编辑页顶部） */
+.room-switch{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.room-switch-label{font-size:12px;color:var(--text-muted);margin-right:4px}
+.room-tab-editor{
+  border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:#334155;
+  border-radius:12px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;
+  box-shadow:inset 0 1px 0 #fff;transition:all .2s;font-family:var(--font-sans);white-space:nowrap;
+}
+.room-tab-editor:hover{background:rgba(255,255,255,.75)}
+.room-tab-editor.active{
+  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent;
+  box-shadow:0 8px 18px rgba(10,27,51,.35);
+}
+.room-tab-add{
+  display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;
+  border:1px dashed rgba(144,88,49,.6);background:rgba(255,255,255,.35);color:var(--clay);
+  border-radius:12px;font-size:18px;line-height:1;cursor:pointer;transition:all .2s;font-family:var(--font-sans);
+}
+.room-tab-add:hover{background:rgba(144,88,49,.18);border-style:solid}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px}
 #save-status{font-size:13px;color:var(--clay);min-height:18px;margin-top:12px}
 #save-status.err{color:#c0392b}
@@ -166,8 +185,11 @@ td.cell.empty{color:rgba(31,44,68,.25)}
 <main class="content">
   <section class="glass-card">
     <header class="card-head">
-      <h1>直播排班表 · 在线编辑</h1>
-      <p class="sub">点击单元格直接编辑 · 保存后自动更新公开网页（GitHub Pages 约 1~2 分钟后生效）</p>
+      <h1>极氪日播间排班 · 在线编辑</h1>
+      <p class="sub">切换直播间独立编辑 · 点击单元格直接修改 · 保存后自动更新公开网页（GitHub Pages 约 1~2 分钟后生效）</p>
+      <div class="room-switch" id="room-switch">
+        <span class="room-switch-label">直播间</span>
+      </div>
       <div class="toolbar">
         <button class="btn-primary2" id="btn-add-date">＋ 新增日期列</button>
         <button class="btn-outline" id="btn-prev-week">上周</button>
@@ -184,7 +206,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
           <tbody id="tbody"></tbody>
         </table>
       </div>
-      <div class="board-note">赤陶色为主播 · 点击「删除本列」可移除日期列</div>
+      <div class="board-note">赤陶色为主播 · 点击「删除本列」可移除该日期列（所有直播间同步）</div>
     </div>
   </section>
 
@@ -197,8 +219,212 @@ td.cell.empty{color:rgba(31,44,68,.25)}
     </div>
   </div>
 
-  <footer class="foot">7X LIVE OPS CONSOLE · Marvis Schedule Reminder</footer>
+  <footer class="foot">ZEEKR LIVE OPS CONSOLE · Marvis Schedule Reminder</footer>
 </main>
+
+<!-- PAGE_JS 模板：与 render_web.py 的 PAGE_JS 逐字节一致，由生成脚本注入 -->
+<script type="text/plain" id="page-js-template">
+
+"use strict";
+var WEEKDAYS_JS = ["周一","周二","周三","周四","周五","周六","周日"];
+var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"],["tech","技术"],["ad","投流"]];
+var SLOT_ORDER_JS = ["第1场","第2场","第3场","第4场","第5场","第6场"];
+var MARQUEE_JS = ["Bilibili","GitHub","Vercel","Figma","Notion","Slack"];
+
+var SCHEDULE = __SCHEDULE_JSON__;
+var CFG = __CFG_JSON__;
+var ROOMS = (CFG.rooms && CFG.rooms.length) ? CFG.rooms.slice() : Object.keys(SCHEDULE);
+var CSS_TEMPLATE_JS = __CSS_TEMPLATE_JSON__;
+var PAGE_JS_SRC = __PAGE_JS_JSON__;
+
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmtD(d){ return d.slice(5).replace("-", "/"); }
+function parseD(s){ var m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/); if (m) return new Date(+m[1], +m[2]-1, +m[3]); return null; }
+function weekOf(d){ var dt = parseD(d); return dt ? WEEKDAYS_JS[dt.getDay()] : ""; }
+
+function displayDatesFor(){
+  var dates = (CFG.display_dates && CFG.display_dates.length) ? CFG.display_dates.slice() : [];
+  ROOMS.forEach(function(r){
+    var data = SCHEDULE[r] || {};
+    Object.keys(data).forEach(function(d){ if (dates.indexOf(d) < 0) dates.push(d); });
+  });
+  dates.sort();
+  return dates;
+}
+
+function buildRoomTable(room){
+  var dates = displayDatesFor();
+  var data = SCHEDULE[room] || {};
+  var dateHeader = dates.map(function(d){ return '<th class="date-col">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
+  var rows = [];
+  SLOT_ORDER_JS.forEach(function(slot){
+    ROLES_JS.forEach(function(pair){
+      var rk = pair[0], rn = pair[1];
+      var cells = "";
+      dates.forEach(function(d){
+        var val = "";
+        if (data[d] && data[d][slot] && data[d][slot][rk] !== undefined) val = data[d][slot][rk];
+        if (val){
+          var cls = "cell";
+          if (rk === "anchor") cls = "cell anchor";
+          else if (rk === "car") cls = "cell car";
+          else if (rk === "time") cls = "cell time";
+          cells += '<td class="' + cls + '">' + esc(val) + '</td>';
+        } else {
+          cells += '<td class="cell empty">·</td>';
+        }
+      });
+      var rowLabel = rk === "time" ? '<span class="slot-badge">' + slot + '</span>' : "";
+      var trCls = rk === "time" ? ' class="row-slot"' : "";
+      rows.push('<tr' + trCls + '><td class="slot-col">' + rowLabel + '</td><td class="role-col">' + rn + '</td>' + cells + '</tr>');
+    });
+  });
+  return '<div class="room-table" data-room="' + esc(room) + '"><div class="table-scroll"><table><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>' + dateHeader + '</tr></thead><tbody>' + rows.join("") + '</tbody></table></div></div>';
+}
+
+function buildTabs(){
+  return ROOMS.map(function(r, i){
+    return '<button class="sheet-tab' + (i === 0 ? " active" : "") + '" data-room="' + esc(r) + '">' + esc(r) + '</button>';
+  }).join("") + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>';
+}
+
+function buildStats(room){
+  var data = SCHEDULE[room] || {};
+  var counter = {};
+  Object.keys(data).forEach(function(d){
+    if (!data[d] || typeof data[d] !== "object") return;
+    Object.keys(data[d]).forEach(function(s){
+      var n = (data[d][s].anchor || "").trim();
+      if (n) counter[n] = (counter[n] || 0) + 1;
+    });
+  });
+  var arr = Object.keys(counter).map(function(n){ return '<span class="chip">主播 <b>' + esc(n) + '</b> × ' + counter[n] + ' 场</span>'; });
+  return arr.join("") || '<span class="chip">暂无数据</span>';
+}
+
+function buildRemind(){
+  var items = [];
+  ROOMS.forEach(function(room){
+    var data = SCHEDULE[room] || {};
+    var dates = Object.keys(data).sort();
+    if (!dates.length) return;
+    var d = dates[dates.length - 1];
+    SLOT_ORDER_JS.forEach(function(slot){
+      var info = (data[d] && data[d][slot]) || {};
+      var t = (info.time || "").trim();
+      var a = (info.anchor || "").trim();
+      if (t && a) items.push([room, d, t, a, slot]);
+    });
+  });
+  if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
+  return items.map(function(it){
+    return '<div class="remind-item"><span class="remind-time">' + esc(it[0]) + ' · ' + esc(it[2]) + '</span><span><span class="remind-slot">' + esc(it[4]) + '</span> · <span class="remind-name">' + esc(it[3]) + '</span></span></div>';
+  }).join("");
+}
+
+function renderHtml(updatedAt){
+  var roomTables = ROOMS.map(buildRoomTable).join("");
+  var tabs = buildTabs();
+  var statsAll = ROOMS.map(function(r, i){
+    return '<div class="stats" data-stats-for="' + esc(r) + '"' + (i === 0 ? "" : ' style="display:none"') + '>' + buildStats(r) + '</div>';
+  }).join("");
+  var marqueeItems = MARQUEE_JS.map(function(it){ return '<span>' + it + '</span>'; }).join("");
+  var marquee = '<div class="marquee"><div class="marquee-track">' + marqueeItems + marqueeItems + '</div></div>';
+  var remindList = buildRemind();
+  var h = "";
+  h += '<!DOCTYPE html>\n';
+  h += '<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
+  h += '<title>极氪日播间排班 · 多直播间</title>\n';
+  h += '<link rel="preconnect" href="https://fonts.googleapis.com">\n';
+  h += '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n';
+  h += '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n';
+  h += '<style>__CSS_TEMPLATE__</style>\n</head>\n<body>\n';
+  h += '<nav class="pill-nav">\n  <a class="active" href="#schedule">排班表</a>\n  <a href="#reminder">提醒</a>\n  <a href="#help">说明</a>\n  <a href="editor.html" target="_blank">在线编辑</a>\n</nav>\n';
+  h += '<main class="content">\n';
+  h += '  <section class="hero" id="top">\n    <div class="hero-inner">\n';
+  h += '      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>\n';
+  h += '      <h1>极氪日播间排班</h1>\n';
+  h += '      <p class="hero-sub">7X · 8X · 9X · 猎装 多直播间独立排班 · 主播开播准时提醒</p>\n';
+  h += '      <div class="hero-actions">\n        <a class="btn-primary" href="#schedule">查看排班</a>\n        <a class="btn-glass" href="#help">如何设置</a>\n      </div>\n    </div>\n  </section>\n';
+  h += '  ' + marquee + '\n';
+  h += '  <div class="cards-grid">\n';
+  h += '    <section class="glass-card" id="schedule">\n      <header class="card-head">\n';
+  h += '        <div>\n          <h2>排班表</h2>\n          <p class="sub">数据更新 <time>' + esc(updatedAt) + '</time></p>\n        </div>\n';
+  h += '        <div class="stats-wrap">' + statsAll + '</div>\n      </header>\n';
+  h += '      <div class="room-tables">' + roomTables + '</div>\n    </section>\n';
+  h += '    <aside class="glass-card remind-card" id="reminder">\n      <header class="card-head">\n';
+  h += '        <div>\n          <h2>最近排班提醒</h2>\n          <p class="sub">全部直播间 · 到点自动提醒</p>\n        </div>\n      </header>\n';
+  h += '      ' + remindList + '\n    </aside>\n  </div>\n';
+  h += '  <div class="note" id="help">\n';
+  h += '    <span>深蓝为主播 · 赤陶为车型 · 圆点为未排班（周末/节假日/未填写）</span>\n';
+  h += '    <span class="tag">Frosted 3D Style · Marvis Schedule</span>\n  </div>\n';
+  h += '</main>\n';
+  h += '<div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n';
+  h += '<script>__PAGE_JS__</' + 'script>\n';
+  h += '</body>\n</html>';
+  return h;
+}
+
+function switchRoom(room){
+  document.querySelectorAll(".sheet-tab").forEach(function(t){ t.classList.toggle("active", t.dataset.room === room); });
+  document.querySelectorAll(".room-table").forEach(function(t){ t.classList.toggle("active", t.dataset.room === room); });
+  document.querySelectorAll("[data-stats-for]").forEach(function(s){ s.style.display = (s.dataset.statsFor === room) ? "" : "none"; });
+}
+
+function ghGetSha(path){
+  var token = (localStorage.getItem("gh_token") || "").trim();
+  return fetch("https://api.github.com/repos/Kayn-QY/-/contents/" + path, { headers: { Authorization: "Bearer " + token } })
+    .then(function(r){ if (!r.ok) { if (r.status === 404) return null; throw new Error("获取 " + path + " 失败: HTTP " + r.status); } return r.json(); })
+    .then(function(j){ return j ? j.sha : null; });
+}
+function ghPut(path, content){
+  return ghGetSha(path).then(function(sha){
+    var body = { message: "在线编辑排班表", content: btoa(unescape(encodeURIComponent(content))) };
+    if (sha) body.sha = sha;
+    return fetch("https://api.github.com/repos/Kayn-QY/-/contents/" + path, {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + (localStorage.getItem("gh_token") || "").trim(), "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      if (!r.ok) { throw new Error("更新 " + path + " 失败: HTTP " + r.status); }
+    });
+  });
+}
+
+function addRoom(){
+  var name = prompt("输入新直播间名称：");
+  if (!name) return;
+  var room = name.trim();
+  if (!room) { alert("直播间名称不能为空"); return; }
+  if (ROOMS.indexOf(room) >= 0) { alert("直播间「" + room + "」已存在"); return; }
+  var token = (localStorage.getItem("gh_token") || "").trim();
+  if (!token) { alert("新增直播间需要 GitHub Token（请先在在线编辑器保存 Token 后重试）。"); window.open("editor.html", "_blank"); return; }
+  SCHEDULE[room] = {};
+  CFG.rooms = ROOMS.concat([room]);
+  ROOMS = CFG.rooms.slice();
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2, "0"); };
+  var updatedAt = now.getFullYear() + "-" + pad(now.getMonth()+1) + "-" + pad(now.getDate()) + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+  var html = renderHtml(updatedAt).replace("__CSS_TEMPLATE__", CSS_TEMPLATE_JS).replace("__PAGE_JS__", PAGE_JS_SRC);
+  ghPut("schedule.json", JSON.stringify(SCHEDULE, null, 2) + "\n")
+    .then(function(){ return ghPut("config.json", JSON.stringify(CFG, null, 2) + "\n"); })
+    .then(function(){ return ghPut("index.html", html); })
+    .then(function(){ return ghPut("output/schedule.html", html); })
+    .then(function(){ alert("已新增直播间「" + room + "」，刷新后生效"); location.reload(); })
+    .catch(function(e){ alert("新增失败: " + e.message); });
+}
+
+function initRoomPage(){
+  document.addEventListener("click", function(e){
+    var tab = e.target.closest(".sheet-tab");
+    if (tab) { switchRoom(tab.dataset.room); return; }
+    var add = e.target.closest("#btn-add-room");
+    if (add) { addRoom(); return; }
+  });
+}
+initRoomPage();
+
+</script>
 
 <script>
 "use strict";
@@ -215,10 +441,15 @@ const ROLES = [
 ];
 const SLOT_ORDER = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 const MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"];
+const DEFAULT_ROOMS = ["7X","8X","9X","猎装"];
 
 let schedule = {};
-let displayDates = [];
 let cfg = {};
+let rooms = [];
+let currentRoom = "7X";
+let displayDates = [];
+
+const PAGE_JS_TEMPLATE = document.getElementById("page-js-template").textContent;
 
 function $(id){ return document.getElementById(id); }
 function fmtDate(d){ return d.slice(5).replace("-", "/"); }
@@ -231,6 +462,20 @@ function parseDate(s){
 }
 function toISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function escapeHtml(s){
+  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function jsSafe(o){ return JSON.stringify(o).replace(/</g, "\\u003c"); }
+
+function migrateIfOld(data){
+  if (!data || typeof data !== "object") return { "7X": {}, "8X": {}, "9X": {}, "猎装": {} };
+  const keys = Object.keys(data);
+  const isOld = keys.length > 0 && keys.some(k => String(k).includes("-")) && !keys.some(k => DEFAULT_ROOMS.includes(k));
+  if (isOld) return { "7X": data, "8X": {}, "9X": {}, "猎装": {} };
+  const out = Object.assign({}, data);
+  DEFAULT_ROOMS.forEach(r => { if (!out[r] || typeof out[r] !== "object") out[r] = {}; });
+  return out;
+}
 
 async function loadData(){
   try {
@@ -239,23 +484,60 @@ async function loadData(){
       fetch("config.json", {cache: "no-store"}),
     ]);
     if (!sRes.ok) throw new Error("schedule.json 加载失败: " + sRes.status);
-    schedule = await sRes.json();
+    schedule = migrateIfOld(await sRes.json());
     if (cRes.ok) cfg = await cRes.json();
-    displayDates = (cfg.display_dates && cfg.display_dates.length) ? cfg.display_dates : Object.keys(schedule).sort();
-    Object.keys(schedule).forEach(d => { if (!displayDates.includes(d)) displayDates.push(d); });
+    rooms = (cfg.rooms && cfg.rooms.length) ? cfg.rooms.slice() : Object.keys(schedule);
+    rooms = rooms.filter(r => r && r !== "__proto__" && r !== "constructor");
+    DEFAULT_ROOMS.forEach(r => { if (!rooms.includes(r)) rooms.push(r); });
+    if (!rooms.length) rooms = DEFAULT_ROOMS.slice();
+    if (!rooms.includes(currentRoom)) currentRoom = rooms[0];
+    displayDates = (cfg.display_dates && cfg.display_dates.length) ? cfg.display_dates.slice() : [];
+    rooms.forEach(r => Object.keys(schedule[r] || {}).forEach(d => { if (!displayDates.includes(d)) displayDates.push(d); }));
     displayDates.sort();
   } catch (e) {
-    schedule = {};
+    schedule = { "7X": {}, "8X": {}, "9X": {}, "猎装": {} };
+    rooms = DEFAULT_ROOMS.slice();
+    currentRoom = "7X";
     displayDates = [];
     setStatus("数据加载失败（请确认是通过 https://kayn-qy.github.io/-/editor.html 访问）: " + e.message, true);
   }
 }
 
-function escapeHtml(s){
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function renderRoomSwitch(){
+  const wrap = $("room-switch");
+  let html = '<span class="room-switch-label">直播间</span>';
+  rooms.forEach(r => {
+    html += `<button class="room-tab-editor${r === currentRoom ? " active" : ""}" data-room="${escapeHtml(r)}">${escapeHtml(r)}</button>`;
+  });
+  html += '<button class="room-tab-add" id="btn-room-add" title="新增直播间">＋</button>';
+  wrap.innerHTML = html;
+}
+
+function switchRoom(room){
+  if (!rooms.includes(room)) return;
+  currentRoom = room;
+  renderRoomSwitch();
+  renderTable();
+  bindCells();
+}
+
+function addRoomEditor(){
+  const name = prompt("输入新直播间名称：");
+  if (!name) return;
+  const room = name.trim();
+  if (!room) { setStatus("直播间名称不能为空", true); return; }
+  if (rooms.includes(room)) { setStatus("直播间「" + room + "」已存在", true); return; }
+  rooms.push(room);
+  schedule[room] = {};
+  currentRoom = room;
+  renderRoomSwitch();
+  renderTable();
+  bindCells();
+  setStatus("已新增直播间「" + room + "」，点击「保存并发布」后线上生效", false);
 }
 
 function renderTable(){
+  const data = schedule[currentRoom] || {};
   let headHtml = '<th class="col-slot">场次</th><th class="col-role">角色</th>';
   displayDates.forEach((d, i) => {
     const dt = parseDate(d);
@@ -266,10 +548,10 @@ function renderTable(){
 
   let rows = "";
   SLOT_ORDER.forEach(slot => {
-    ROLES.forEach(([rk, rn], ri) => {
+    ROLES.forEach(([rk, rn]) => {
       let cells = "";
       displayDates.forEach(d => {
-        const val = (schedule[d] && schedule[d][slot] && schedule[d][slot][rk] !== undefined) ? schedule[d][slot][rk] : "";
+        const val = (data[d] && data[d][slot] && data[d][slot][rk] !== undefined) ? data[d][slot][rk] : "";
         const cls = rk === "anchor" ? "cell anchor" : "cell" + (val ? "" : " empty");
         cells += `<td class="${cls}" contenteditable="true" data-date="${d}" data-slot="${slot}" data-role="${rk}">${escapeHtml(val)}</td>`;
       });
@@ -285,9 +567,10 @@ function bindCells(){
   document.querySelectorAll("td.cell").forEach(td => {
     td.addEventListener("input", () => {
       const d = td.dataset.date, s = td.dataset.slot, r = td.dataset.role;
-      if (!schedule[d]) schedule[d] = {};
-      if (!schedule[d][s]) schedule[d][s] = {};
-      schedule[d][s][r] = td.innerText.trim();
+      if (!schedule[currentRoom]) schedule[currentRoom] = {};
+      if (!schedule[currentRoom][d]) schedule[currentRoom][d] = {};
+      if (!schedule[currentRoom][d][s]) schedule[currentRoom][d][s] = {};
+      schedule[currentRoom][d][s][r] = td.innerText.trim();
       td.classList.toggle("empty", !td.innerText.trim());
     });
   });
@@ -302,15 +585,15 @@ function addDateColumn(){
   if (displayDates.includes(iso)) { setStatus("该日期已存在", true); return; }
   displayDates.push(iso);
   displayDates.sort();
-  if (!schedule[iso]) schedule[iso] = {};
+  rooms.forEach(r => { if (!schedule[r]) schedule[r] = {}; if (!schedule[r][iso]) schedule[r][iso] = {}; });
   renderTable(); bindCells();
   setStatus(`已添加日期列 ${iso}`, false);
 }
 function delDateColumn(i){
   const d = displayDates[i];
-  if (!confirm(`确定删除日期列 ${d} 及其全部排班数据？`)) return;
+  if (!confirm(`确定删除日期列 ${d} 及其全部直播间的排班数据？`)) return;
   displayDates.splice(i, 1);
-  delete schedule[d];
+  rooms.forEach(r => { if (schedule[r]) delete schedule[r][d]; });
   renderTable(); bindCells();
   setStatus(`已删除 ${d}`, false);
 }
@@ -320,8 +603,9 @@ function shiftWeek(days){
   renderTable(); bindCells();
 }
 
-// ---------- 渲染 HTML（与 render_web.py 视觉一致，毛玻璃 3D 版） ----------
+// ---------- 渲染 HTML（与 render_web.py 视觉一致，毛玻璃 3D 版；CSS 由生成脚本注入） ----------
 const CSS_VIEW = `
+
 :root{
   --ink-deep: #0a1b33;
   --ink-2: #1e3a5f;
@@ -482,6 +766,35 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 /* 底部说明 */
 .note{margin-top:20px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0 4px}
 .note .tag{letter-spacing:.06em;text-transform:uppercase;font-size:10.5px;color:rgba(74,90,114,.75)}
+/* 左下角 Excel 式 Sheet 标签栏 */
+.sheet-bar{
+  position:fixed;left:20px;bottom:20px;z-index:120;display:flex;align-items:center;gap:6px;
+  padding:8px 10px;border-radius:18px;max-width:calc(100vw - 40px);overflow-x:auto;
+  background:linear-gradient(135deg, rgba(255,255,255,.66), rgba(255,255,255,.42));
+  backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 18px 40px rgba(20,30,50,.24), inset 0 1px 0 rgba(255,255,255,.9);
+  font-family:var(--font-sans);
+}
+.sheet-tab{
+  border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:#334155;
+  border-radius:12px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+  box-shadow:inset 0 1px 0 #fff;transition:all .2s ease;font-family:var(--font-sans);
+}
+.sheet-tab:hover{background:rgba(255,255,255,.75)}
+.sheet-tab.active{
+  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent;
+  box-shadow:0 8px 18px rgba(10,27,51,.35);
+}
+.sheet-add{
+  display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 auto;
+  border:1px dashed rgba(144,88,49,.6);background:rgba(255,255,255,.35);color:var(--clay);
+  border-radius:12px;font-size:18px;line-height:1;cursor:pointer;transition:all .2s;font-family:var(--font-sans);
+}
+.sheet-add:hover{background:rgba(144,88,49,.18);border-style:solid}
+/* 直播间独立表格 */
+.room-table{display:none}
+.room-table.active{display:block;animation:rise .4s cubic-bezier(.16,1,.3,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:1024px){
@@ -493,43 +806,58 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .pill-nav a{padding:7px 12px;font-size:12px}
   .hero-inner{padding:40px 24px}
   .glass-card{padding:18px 14px;border-radius:20px}
+  .sheet-bar{left:12px;bottom:12px;max-width:calc(100vw - 24px)}
 }
+
 `;
 
-function latestReminders(){
-  const dates = Object.keys(schedule).sort();
-  if (!dates.length) return [null, []];
-  const d = dates[dates.length - 1];
-  const items = [];
-  SLOT_ORDER.forEach(slot => {
-    const info = (schedule[d] && schedule[d][slot]) || {};
-    const t = (info.time || "").trim();
-    const a = (info.anchor || "").trim();
-    if (t && a) items.push([t, a, slot]);
+function buildStatsHtml(room){
+  const data = schedule[room] || {};
+  const counter = {};
+  Object.keys(data).forEach(d => {
+    if (!data[d] || typeof data[d] !== "object") return;
+    Object.keys(data[d]).forEach(s => {
+      const n = (data[d][s].anchor || "").trim();
+      if (n) counter[n] = (counter[n] || 0) + 1;
+    });
   });
-  return [d, items];
+  const arr = Object.keys(counter).map(n => `<span class="chip">主播 <b>${escapeHtml(n)}</b> × ${counter[n]} 场</span>`);
+  return arr.join("") || '<span class="chip">暂无数据</span>';
 }
 
-function renderHtml(updatedAt){
-  const counter = {};
-  Object.values(schedule).forEach(slots => Object.values(slots).forEach(info => {
-    const n = (info.anchor || "").trim();
-    if (n) counter[n] = (counter[n] || 0) + 1;
-  }));
-  const chips = Object.entries(counter).map(([n, c]) => `<span class="chip">主播 <b>${escapeHtml(n)}</b> × ${c} 场</span>`).join("") || '<span class="chip">暂无数据</span>';
+function buildRemindHtml(){
+  const items = [];
+  rooms.forEach(room => {
+    const data = schedule[room] || {};
+    const dates = Object.keys(data).sort();
+    if (!dates.length) return;
+    const d = dates[dates.length - 1];
+    SLOT_ORDER.forEach(slot => {
+      const info = (data[d] && data[d][slot]) || {};
+      const t = (info.time || "").trim();
+      const a = (info.anchor || "").trim();
+      if (t && a) items.push([room, d, t, a, slot]);
+    });
+  });
+  if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
+  return items.map(it =>
+    `<div class="remind-item"><span class="remind-time">${escapeHtml(it[0])} · ${escapeHtml(it[2])}</span><span><span class="remind-slot">${escapeHtml(it[4])}</span> · <span class="remind-name">${escapeHtml(it[3])}</span></span></div>`
+  ).join("");
+}
 
+function buildRoomTableHtml(room){
+  const data = schedule[room] || {};
   const dateHeader = displayDates.map(d => {
     const dt = parseDate(d);
     const wd = dt ? WEEKDAYS[dt.getDay()] : "";
     return `<th class="date-col">${fmtDate(d)}<span class="wd">${wd}</span></th>`;
   }).join("");
-
   const rows = [];
   SLOT_ORDER.forEach(slot => {
     ROLES.forEach(([rk, rn]) => {
       let cells = "";
       displayDates.forEach(d => {
-        const val = (schedule[d] && schedule[d][slot] && schedule[d][slot][rk] !== undefined) ? schedule[d][slot][rk] : "";
+        const val = (data[d] && data[d][slot] && data[d][slot][rk] !== undefined) ? data[d][slot][rk] : "";
         if (val) {
           let cls = "cell";
           if (rk === "anchor") cls = "cell anchor";
@@ -545,33 +873,33 @@ function renderHtml(updatedAt){
       rows.push(`<tr${trCls}><td class="slot-col">${rowLabel}</td><td class="role-col">${rn}</td>${cells}</tr>`);
     });
   });
+  return `<div class="room-table" data-room="${escapeHtml(room)}"><div class="table-scroll"><table><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>${dateHeader}</tr></thead><tbody>${rows.join("")}</tbody></table></div></div>`;
+}
 
+function renderHtml(updatedAt){
+  const roomTables = rooms.map(buildRoomTableHtml).join("");
+  const tabs = rooms.map((r, i) =>
+    `<button class="sheet-tab${i === 0 ? " active" : ""}" data-room="${escapeHtml(r)}">${escapeHtml(r)}</button>`
+  ).join("") + '<button class="sheet-add" id="btn-add-room" title="新增直播间">＋</button>';
+  const statsAll = rooms.map((r, i) =>
+    `<div class="stats" data-stats-for="${escapeHtml(r)}"${i === 0 ? "" : ' style="display:none"'} data-room-stats="${escapeHtml(r)}">${buildStatsHtml(r)}</div>`
+  ).join("");
   const marqueeItems = MARQUEE_ITEMS.map(it => `<span>${it}</span>`).join("");
   const marquee = `<div class="marquee"><div class="marquee-track">${marqueeItems}${marqueeItems}</div></div>`;
+  const remindList = buildRemindHtml();
 
-  const [remindDate, remindItems] = latestReminders();
-  let remindTitle, remindSub, remindList;
-  if (remindItems.length) {
-    const today = new Date();
-    const pad = n => String(n).padStart(2, "0");
-    const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-    remindTitle = remindDate === todayStr ? "今日提醒" : "最近排班提醒";
-    remindSub = `<span class="sub">${remindDate} · 到点自动提醒</span>`;
-    remindList = remindItems.map(([t, a, s]) =>
-      `<div class="remind-item"><span class="remind-time">${escapeHtml(t)}</span><span><span class="remind-slot">${escapeHtml(s)}</span> · <span class="remind-name">${escapeHtml(a)}</span></span></div>`
-    ).join("");
-  } else {
-    remindTitle = "今日提醒";
-    remindSub = '<span class="sub">暂无排班数据</span>';
-    remindList = '<div class="remind-empty">今日暂无排班，添加数据后自动生成提醒</div>';
-  }
+  const pageJs = PAGE_JS_TEMPLATE
+    .split("__SCHEDULE_JSON__").join(jsSafe(schedule))
+    .split("__CFG_JSON__").join(jsSafe(cfg))
+    .split("__CSS_TEMPLATE_JSON__").join(jsSafe(CSS_VIEW))
+    .split("__PAGE_JS_JSON__").join(jsSafe(PAGE_JS_TEMPLATE));
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>【7X官方直播间】直播排班表</title>
+<title>极氪日播间排班 · 多直播间</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -589,9 +917,9 @@ function renderHtml(updatedAt){
 <main class="content">
   <section class="hero" id="top">
     <div class="hero-inner">
-      <div class="hero-eyebrow">Schedule Reminder · 7X Official Live</div>
-      <h1>排班一眼看清，提醒准时到达</h1>
-      <p class="hero-sub">直播排班 · 角色分工 · 每日提醒，一站掌握 7X 官方直播间全流程。</p>
+      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>
+      <h1>极氪日播间排班</h1>
+      <p class="hero-sub">7X · 8X · 9X · 猎装 多直播间独立排班 · 主播开播准时提醒</p>
       <div class="hero-actions">
         <a class="btn-primary" href="#schedule">查看排班</a>
         <a class="btn-glass" href="#help">如何设置</a>
@@ -608,23 +936,16 @@ function renderHtml(updatedAt){
           <h2>排班表</h2>
           <p class="sub">数据更新 <time>${updatedAt}</time></p>
         </div>
-        <div class="stats" id="stats">${chips}</div>
+        <div class="stats-wrap">${statsAll}</div>
       </header>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr><th class="col-slot">场次</th><th class="col-role">角色</th>${dateHeader}</tr>
-          </thead>
-          <tbody>${rows.join("")}</tbody>
-        </table>
-      </div>
+      <div class="room-tables">${roomTables}</div>
     </section>
 
     <aside class="glass-card remind-card" id="reminder">
       <header class="card-head">
         <div>
-          <h2>${remindTitle}</h2>
-          ${remindSub}
+          <h2>最近排班提醒</h2>
+          <p class="sub">全部直播间 · 到点自动提醒</p>
         </div>
       </header>
       ${remindList}
@@ -636,6 +957,14 @@ function renderHtml(updatedAt){
     <span class="tag">Frosted 3D Style · Marvis Schedule</span>
   </div>
 </main>
+
+<div class="sheet-bar" id="sheet-bar">
+  ${tabs}
+</div>
+
+<script>
+${pageJs}
+<\/script>
 </body>
 </html>`;
 }
@@ -677,29 +1006,36 @@ async function ghPut(path, content){
 }
 
 async function save(){
+  // 收集当前直播间表格输入
   document.querySelectorAll("td.cell").forEach(td => {
     const d = td.dataset.date, s = td.dataset.slot, r = td.dataset.role;
-    if (!schedule[d]) schedule[d] = {};
-    if (!schedule[d][s]) schedule[d][s] = {};
-    schedule[d][s][r] = td.innerText.trim();
+    if (!schedule[currentRoom]) schedule[currentRoom] = {};
+    if (!schedule[currentRoom][d]) schedule[currentRoom][d] = {};
+    if (!schedule[currentRoom][d][s]) schedule[currentRoom][d][s] = {};
+    schedule[currentRoom][d][s][r] = td.innerText.trim();
   });
-  const clean = {};
-  Object.keys(schedule).sort().forEach(d => {
-    const slots = {};
-    Object.keys(schedule[d]).forEach(s => {
-      const info = {};
-      let has = false;
-      ROLES.forEach(([rk]) => {
-        const v = (schedule[d][s][rk] || "").trim();
-        info[rk] = v;
-        if (v) has = true;
-      });
-      if (has) slots[s] = info;
-    });
-    if (Object.keys(slots).length) clean[d] = slots;
-  });
-  schedule = clean;
 
+  // 清理空数据（所有直播间）
+  rooms.forEach(room => {
+    const cleanRoom = {};
+    Object.keys(schedule[room] || {}).sort().forEach(d => {
+      const slots = {};
+      Object.keys(schedule[room][d] || {}).forEach(s => {
+        const info = {};
+        let has = false;
+        ROLES.forEach(([rk]) => {
+          const v = (schedule[room][d][s][rk] || "").trim();
+          info[rk] = v;
+          if (v) has = true;
+        });
+        if (has) slots[s] = info;
+      });
+      if (Object.keys(slots).length) cleanRoom[d] = slots;
+    });
+    schedule[room] = cleanRoom;
+  });
+
+  cfg.rooms = rooms.slice();
   cfg.display_dates = displayDates.slice();
 
   const now = new Date();
@@ -722,7 +1058,7 @@ async function save(){
     await ghPut("config.json", JSON.stringify(cfg, null, 2) + "\n");
     await ghPut("index.html", html);
     await ghPut("output/schedule.html", html);
-    setStatus("保存成功！GitHub Pages 约 1~2 分钟后自动更新，可点「查看网页」确认。", false);
+    setStatus("保存成功！GitHub Pages 约 1~2 分钟后自动更新，可点「返回首页」确认。", false);
   } catch (e) {
     setStatus(e.message, true);
     if (/Bad credentials|401/.test(e.message)) {
@@ -753,12 +1089,17 @@ function init(){
   });
   document.addEventListener("click", e => {
     const del = e.target.closest(".del-date");
-    if (del) delDateColumn(parseInt(del.dataset.delDate, 10));
+    if (del) { delDateColumn(parseInt(del.dataset.delDate, 10)); return; }
+    const tab = e.target.closest(".room-tab-editor");
+    if (tab) { switchRoom(tab.dataset.room); return; }
+    const add = e.target.closest("#btn-room-add");
+    if (add) { addRoomEditor(); return; }
   });
 }
 
 (async function main(){
   await loadData();
+  renderRoomSwitch();
   renderTable();
   bindCells();
   init();

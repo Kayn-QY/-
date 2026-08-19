@@ -67,49 +67,67 @@ def slot_start_time(slot_time):
     return datetime.strptime(start_s, "%H:%M").time()
 
 
+def normalize_schedule(schedule, cfg):
+    """兼容旧结构（顶层为日期键）→ 迁移为 {room: {date: ...}} 多直播间结构"""
+    if not schedule or not isinstance(schedule, dict):
+        return {}
+    rooms = cfg.get("rooms") or ["7X", "8X", "9X", "猎装"]
+    # 顶层 key 与直播间名有交集 → 已是多直播间结构
+    if any(r in schedule for r in rooms):
+        return schedule
+    # 顶层为日期键（旧结构）→ 归入 7X
+    return {"7X": schedule}
+
+
 def check_once(now=None):
     """检查当前时间点是否有需要触发的提醒（只提醒主播开播）。返回触发数量。"""
     cfg = load_config()
-    schedule = load_schedule()
+    schedule = normalize_schedule(load_schedule(), cfg)
     state = load_state()
     remind_minutes = int(cfg.get("remind_minutes", 10))
+    rooms = cfg.get("rooms") or list(schedule.keys()) or ["7X"]
     triggered = 0
 
     now = now or datetime.now()
     today_str = now.strftime("%Y-%m-%d")
-    today_schedule = schedule.get(today_str, {})
 
     # 清理非当天的已提醒状态（跨天自动切换）
     state = {k: v for k, v in state.items() if k.startswith(today_str)}
 
-    for slot, info in today_schedule.items():
-        slot_time = info.get("time", "")
-        anchor = (info.get("anchor", "") or "").strip()
-        if not slot_time or not anchor:
+    for room in rooms:
+        room_data = schedule.get(room, {})
+        if not isinstance(room_data, dict):
             continue
-        try:
-            start_time = slot_start_time(slot_time)
-        except Exception:
-            continue
-        slot_start = datetime.combine(now.date(), start_time)
-        remind_at = slot_start - timedelta(minutes=remind_minutes)
+        for slot, info in (room_data.get(today_str, {}) or {}).items():
+            if not isinstance(info, dict):
+                continue
+            slot_time = info.get("time", "")
+            anchor = (info.get("anchor", "") or "").strip()
+            if not slot_time or not anchor:
+                continue
+            try:
+                start_time = slot_start_time(slot_time)
+            except Exception:
+                continue
+            slot_start = datetime.combine(now.date(), start_time)
+            remind_at = slot_start - timedelta(minutes=remind_minutes)
 
-        # 只在提醒时间点前后 30 秒内触发
-        if not (remind_at - timedelta(seconds=30) <= now <= remind_at + timedelta(seconds=30)):
-            continue
-        # 若已过时段开始时间，跳过
-        if now > slot_start + timedelta(minutes=1):
-            continue
+            # 只在提醒时间点前后 30 秒内触发
+            if not (remind_at - timedelta(seconds=30) <= now <= remind_at + timedelta(seconds=30)):
+                continue
+            # 若已过时段开始时间，跳过
+            if now > slot_start + timedelta(minutes=1):
+                continue
 
-        key = f"{today_str}|{slot}|{anchor}"
-        if key in state:
-            continue
+            key = f"{today_str}|{room}|{slot}|{anchor}"
+            if key in state:
+                continue
 
-        message = f"到点了：{anchor} {slot_time} 要开播了（提前{remind_minutes}分钟提醒）"
-        notify("开播提醒", message)
-        log(f"提醒触发: {message}")
-        state[key] = now.strftime("%Y-%m-%d %H:%M:%S")
-        triggered += 1
+            message = f"到点了：{anchor} {slot_time} 要开播了（提前{remind_minutes}分钟提醒）"
+            notify(f"开播提醒 · {room}", message)
+            log(f"提醒触发: [{room}] {message}")
+            state[key] = now.strftime("%Y-%m-%d %H:%M:%S")
+            triggered += 1
 
     save_state(state)
     return triggered
