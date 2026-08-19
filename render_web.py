@@ -26,31 +26,6 @@ SLOT_ORDER = ["第1场", "第2场", "第3场", "第4场", "第5场", "第6场"]
 
 MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"]
 
-# Excel 式 Sheet 面板（左下角浮动，与 editor.html renderHtml 保持一致）
-SHEET_HTML = """
-<div class="sheet-panel" id="sheet-panel">
-  <div class="sheet-head">
-    <span class="sheet-title">Excel Sheet · 排班编辑</span>
-    <div class="sheet-actions">
-      <button id="sheet-add-col">＋列</button>
-      <button id="sheet-add-row">＋行</button>
-      <button class="sheet-save" id="sheet-save">保存</button>
-      <button id="sheet-collapse">收起</button>
-    </div>
-  </div>
-  <div class="sheet-wrap"><table class="sheet-table" id="sheet-table"></table></div>
-  <div class="sheet-status" id="sheet-status">加载中…</div>
-  <div class="sheet-token" id="sheet-token">
-    <input type="password" id="sheet-token-input" placeholder="GitHub Token（ghp_ 或 github_pat_ 开头）">
-    <div class="sheet-token-actions">
-      <button class="btn-primary" id="sheet-token-save">保存 Token</button>
-      <button id="sheet-token-clear">清除</button>
-    </div>
-  </div>
-</div>
-<script src="sheet.js"></script>
-"""
-
 CSS_TEMPLATE = """
 :root{
   --ink-deep: #0a1b33;
@@ -165,13 +140,6 @@ body{
 .chip:hover{transform:translateY(-1px)}
 /* 表格 */
 .table-scroll{overflow-x:auto;border-radius:16px}
-/* 冻结列：场次/角色列固定不动，横向滚动仅数据区滑动 */
-thead th.col-slot{position:sticky;left:0;z-index:6;background:linear-gradient(150deg, rgba(255,255,255,.97), rgba(255,255,255,.92))}
-thead th.col-role{position:sticky;left:90px;z-index:6;background:linear-gradient(150deg, rgba(255,255,255,.97), rgba(255,255,255,.92))}
-td.slot-col{position:sticky;left:0;z-index:4;background:linear-gradient(150deg, rgba(255,255,255,.97), rgba(255,255,255,.92))}
-td.role-col{position:sticky;left:90px;z-index:4;background:linear-gradient(150deg, rgba(255,255,255,.97), rgba(255,255,255,.92))}
-tbody tr:hover td.slot-col,
-tbody tr:hover td.role-col{background:linear-gradient(150deg, rgba(255,255,255,.99), rgba(255,255,255,.94))}
 table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
@@ -219,68 +187,6 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 /* 底部说明 */
 .note{margin-top:20px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0 4px}
 .note .tag{letter-spacing:.06em;text-transform:uppercase;font-size:10.5px;color:rgba(74,90,114,.75)}
-/* Excel 式 Sheet 面板（左下角浮动） */
-.sheet-panel{
-  position:fixed;left:16px;bottom:16px;z-index:120;width:min(560px,calc(100vw - 32px));
-  border-radius:20px;border:1px solid rgba(255,255,255,.65);
-  background:linear-gradient(150deg, rgba(255,255,255,.8), rgba(255,255,255,.56));
-  backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
-  box-shadow:0 30px 70px rgba(20,30,50,.32), inset 0 1px 0 rgba(255,255,255,.9);
-  overflow:hidden;font-family:var(--font-sans);
-}
-.sheet-panel.collapsed{width:auto}
-.sheet-head{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;
-  background:linear-gradient(135deg, rgba(10,27,51,.93), rgba(30,58,95,.93));
-}
-.sheet-head .sheet-title{color:#fff;font-weight:600;font-size:13px;letter-spacing:.03em;white-space:nowrap}
-.sheet-head .sheet-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.sheet-head button{
-  border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.14);color:#fff;
-  border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:var(--font-sans);
-  transition:background .2s;white-space:nowrap;
-}
-.sheet-head button:hover{background:rgba(255,255,255,.3)}
-.sheet-head button.sheet-save{background:linear-gradient(135deg, #c07a4a, #905831);border-color:transparent;font-weight:600}
-.sheet-head button.sheet-save:hover{background:linear-gradient(135deg, #d08a58, #a06838)}
-.sheet-wrap{max-height:280px;overflow:auto;padding:10px 10px 4px}
-.sheet-table{border-collapse:separate;border-spacing:3px;width:100%;min-width:420px;font-size:11.5px}
-.sheet-table th,.sheet-table td{border-radius:8px;padding:4px 6px;text-align:center;font-weight:400}
-.sheet-table thead th{
-  background:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.8);color:#1f2c44;
-  font-size:11px;white-space:nowrap;box-shadow:inset 0 1px 0 #fff;
-}
-.sheet-table thead th .sheet-del{display:inline-block;margin-left:4px;color:#c0392b;cursor:pointer;font-size:12px;font-weight:700;opacity:.75}
-.sheet-table thead th .sheet-del:hover{opacity:1}
-.sheet-table .sheet-corner{position:sticky;left:0;top:0;z-index:5;background:linear-gradient(135deg,#0a1b33,#1e3a5f);color:#fff;font-weight:600}
-.sheet-table th.sheet-date{position:sticky;top:0;z-index:3}
-.sheet-table td.sheet-cell{
-  background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.75);color:#334155;
-  min-width:64px;outline:none;cursor:text;white-space:pre-wrap;word-break:break-word;
-}
-.sheet-table td.sheet-cell:hover{background:rgba(255,255,255,.8)}
-.sheet-table td.sheet-cell:focus{background:rgba(255,255,255,.92);box-shadow:inset 0 0 0 1.5px var(--clay)}
-.sheet-table td.sheet-cell.empty{color:rgba(31,44,68,.28);background:rgba(255,255,255,.4)}
-.sheet-table td.sheet-label{
-  background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.85);color:#334155;
-  white-space:nowrap;text-align:left;font-size:11px;
-}
-.sheet-table td.sheet-label .slot-badge{min-width:38px;padding:2px 6px;font-size:10px}
-.sheet-table td.sheet-label .sheet-del{color:#c0392b;cursor:pointer;font-weight:700;margin-left:5px;opacity:.7;font-size:11px}
-.sheet-table td.sheet-label .sheet-del:hover{opacity:1}
-.sheet-status{min-height:20px;padding:2px 14px 8px;font-size:11.5px;color:var(--clay)}
-.sheet-status.err{color:#c0392b}
-.sheet-token{display:none;padding:8px 12px 10px;border-top:1px dashed rgba(255,255,255,.6)}
-.sheet-token input{
-  width:100%;padding:7px 12px;border:1px solid rgba(255,255,255,.75);border-radius:999px;font-size:12px;
-  background:rgba(255,255,255,.6);color:var(--text-main);outline:none;box-shadow:inset 0 1px 0 #fff;
-}
-.sheet-token .sheet-token-actions{display:flex;gap:6px;margin-top:8px}
-.sheet-token button{
-  border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:var(--text-main);
-  border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:var(--font-sans);
-}
-.sheet-token button.btn-primary{background:linear-gradient(135deg,#0a1b33,#1e3a5f);color:#fff;border-color:transparent}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:1024px){
@@ -497,7 +403,6 @@ def render_html(schedule, cfg):
     <span class="tag">Frosted 3D Style · Marvis Schedule</span>
   </div>
 </main>
-{SHEET_HTML}
 </body>
 </html>"""
     html_path = os.path.join(OUTPUT_DIR, "schedule.html")
