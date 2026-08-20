@@ -112,19 +112,17 @@ body{
 }
 .right-scroll #edit-table{
   width:100%;margin:0 auto;
-  border-collapse:separate;border-spacing:6px;min-width:800px;font-size:12.5px;table-layout:fixed;
+  border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed;
 }
 /* 表头：左右统一固定高度（含删除本列占位），保证与左侧场次/角色面板逐行对齐 */
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
-  height:74px;vertical-align:middle;
+  height:56px;vertical-align:middle;
 }
 .left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:104px;color:var(--text-main);font-weight:500}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
-.date-col .del-date{display:inline-block;margin-top:5px;font-size:11px;font-weight:400;cursor:pointer;color:var(--text-muted);text-decoration:underline;opacity:.8;transition:color .15s}
-.date-col .del-date:hover{color:#c0392b}
 .date-col.today{background:linear-gradient(135deg, rgba(144,88,49,.18), rgba(192,122,74,.12));box-shadow:inset 0 0 0 1.5px rgba(144,88,49,.55)}
 .date-col.selected{background:linear-gradient(135deg, rgba(10,27,51,.14), rgba(30,58,95,.1));box-shadow:inset 0 0 0 1.5px rgba(10,27,51,.6)}
 td.col-selected{background:rgba(10,27,51,.08);box-shadow:inset 0 0 0 1px rgba(10,27,51,.35)}
@@ -144,7 +142,7 @@ td{
 td.cell{min-width:92px;height:44px;outline:none;cursor:text}
 td.cell:hover{background:rgba(255,255,255,.72)}
 td.cell:focus{background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1.5px var(--clay)}
-td.cell.anchor{color:var(--clay);font-weight:600}
+td.cell.anchor{color:#334155;font-weight:500}
 td.cell.empty{color:rgba(31,44,68,.25)}
 .board-note{margin-top:14px;font-size:12px;color:var(--text-muted);padding:0 6px 6px}
 /* 复制粘贴解析预览弹窗 */
@@ -200,6 +198,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
 @media (max-width:640px){
   .btn-primary2{padding:10px 14px;font-size:13px}
   .btn-ghost{display:inline-flex;font-size:12px;padding:8px 12px}
+  .right-scroll #edit-table{min-width:800px}
 }
 </style>
 </head>
@@ -215,7 +214,6 @@ td.cell.empty{color:rgba(31,44,68,.25)}
       </div>
       <div class="toolbar">
         <a class="btn-ghost" href="index.html">← 前往排班表</a>
-        <button class="btn-primary2" id="btn-add-date">＋ 新增日期列</button>
         <button class="btn-outline" id="btn-prev-week">上周</button>
         <span class="week-label" id="week-label"></span>
         <button class="btn-outline" id="btn-next-week">下周</button>
@@ -242,7 +240,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
           </table>
         </div>
       </div>
-      <div class="board-note">点击日期表头可选中该列（高亮） · 「清除选定日期」清空选中日期列（当前直播间） · 「清除全部」清空当前直播间全部数据 · 点击「删除本列」可移除日期列（所有直播间同步）</div>
+      <div class="board-note">点击日期表头可选中该列（高亮） · 「清除选定日期」清空选中日期列（当前直播间） · 「清除全部」清空当前直播间全部数据</div>
     </div>
   </section>
 
@@ -675,7 +673,7 @@ function renderTable(){
   displayDates.forEach((d, i) => {
     const dt = parseDate(d);
     const wd = dt ? WEEKDAYS[dt.getDay()] : "";
-    headHtml += `<th class="date-col${d === today ? " today" : ""}${d === selectedDate ? " selected" : ""}" data-date="${d}">${fmtDate(d)}<span class="wd">${wd}</span><span class="del-date" data-del-date="${i}">删除本列</span></th>`;
+    headHtml += `<th class="date-col${d === today ? " today" : ""}${d === selectedDate ? " selected" : ""}" data-date="${d}">${fmtDate(d)}<span class="wd">${wd}</span></th>`;
   });
   $("thead-row").innerHTML = headHtml;
 
@@ -713,27 +711,6 @@ function bindCells(){
   });
 }
 
-function addDateColumn(){
-  const input = prompt("输入新日期（格式 2026-08-20，或 08-20）：");
-  if (!input) return;
-  const dt = parseDate(input.trim());
-  if (!dt) { setStatus("日期格式不正确", true); return; }
-  const iso = toISO(dt);
-  rooms.forEach(r => { if (!schedule[r]) schedule[r] = {}; if (!schedule[r][iso]) schedule[r][iso] = {}; });
-  displayDates = weekDates(mondayOf(dt));
-  selectedDate = iso;
-  renderTable(); bindCells();
-  updateWeekLabel();
-  setStatus(`已添加日期列 ${iso}，已切换到所在周并选中`, false);
-}
-function delDateColumn(i){
-  const d = displayDates[i];
-  if (!confirm(`确定删除日期列 ${d} 及其全部直播间的排班数据？`)) return;
-  displayDates.splice(i, 1);
-  rooms.forEach(r => { if (schedule[r]) delete schedule[r][d]; });
-  renderTable(); bindCells();
-  setStatus(`已删除 ${d}`, false);
-}
 function shiftWeek(weeks){
   const base = parseDate(displayDates[0]) || new Date();
   displayDates = weekDates(mondayOf(addDays(base, weeks * 7)));
@@ -883,7 +860,7 @@ body{
 }
 .right-scroll .right-table{
   width:100%;margin:0 auto;
-  border-collapse:separate;border-spacing:6px;min-width:700px;font-size:12.5px;table-layout:fixed;
+  border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed;
 }
 /* 表头：左右同高，避免独立表格间错位 */
 thead th{
@@ -925,15 +902,9 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   box-shadow:0 6px 14px rgba(10,27,51,.3);
 }
 .cell{min-height:26px}
-.cell.anchor{
-  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;font-weight:600;border-color:transparent;
-  box-shadow:0 8px 18px rgba(10,27,51,.3);
-}
-.cell.car{
-  background:linear-gradient(135deg, #905831, #c07a4a);color:#fff;font-weight:600;border-color:transparent;
-  box-shadow:0 8px 18px rgba(144,88,49,.3);
-}
-.cell.time{color:#0f1e3d;font-weight:500}
+.cell.anchor{color:#334155;font-weight:500}
+.cell.car{color:#334155;font-weight:500}
+.cell.time{background:#eaf3ff;color:#0f1e3d;font-weight:500}
 .cell.empty{background:rgba(255,255,255,.32);color:rgba(31,44,68,.25);border-color:rgba(255,255,255,.4)}
 /* 提醒卡片 */
 .remind-card{align-self:start}
@@ -986,6 +957,7 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .glass-card{padding:18px 14px;border-radius:20px}
   .head-right{justify-content:flex-start;width:100%}
   .sheet-bar{max-width:100%}
+  .right-scroll .right-table{min-width:700px}
 }
 `;
 
@@ -1386,18 +1358,18 @@ function openPasteModal(){
 async function confirmPaste(result){
   if (!result.date) { setStatus("未识别到日期，已取消写入", true); return; }
   const iso = toISO(result.date);
+  if (!displayDates.includes(iso)) {
+    setStatus(`该日期 ${iso} 不在表中，已取消写入（暂不支持新增日期列）`, true);
+    return;
+  }
   if (!schedule[currentRoom]) schedule[currentRoom] = {};
   if (!schedule[currentRoom][iso]) schedule[currentRoom][iso] = {};
   result.entries.forEach((e, i) => {
     const slot = SLOT_ORDER[i];
     if (!slot) return;
     const prev = schedule[currentRoom][iso][slot] || {};
-    schedule[currentRoom][iso][slot] = { time: e.time, car: prev.car || "", anchor: e.anchor };
+    schedule[currentRoom][iso][slot] = { time: e.time, car: prev.car || currentRoom, anchor: e.anchor };
   });
-  if (!displayDates.includes(iso)) {
-    displayDates = weekDates(mondayOf(parseDate(iso)));
-    selectedDate = iso;
-  }
   renderTable(); bindCells();
   const hasErr = result.entries.some(e => !e.anchor);
   setStatus(`已写入 ${iso} 共 ${result.entries.length} 场${hasErr ? "（部分主播未识别，可手动补充）" : ""}，正在保存并发布…`, hasErr);
@@ -1405,7 +1377,6 @@ async function confirmPaste(result){
 }
 
 function init(){
-  $("btn-add-date").addEventListener("click", addDateColumn);
   $("btn-prev-week").addEventListener("click", () => shiftWeek(-1));
   $("btn-next-week").addEventListener("click", () => shiftWeek(1));
   $("btn-save").addEventListener("click", save);
@@ -1426,8 +1397,6 @@ function init(){
     setStatus("Token 已清除", false);
   });
   document.addEventListener("click", e => {
-    const del = e.target.closest(".del-date");
-    if (del) { delDateColumn(parseInt(del.dataset.delDate, 10)); return; }
     const th = e.target.closest("th.date-col");
     if (th) {
       const d = th.dataset.date;

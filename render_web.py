@@ -101,7 +101,7 @@ body{
 }
 @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 /* 卡片网格：排班表 + 提醒 */
-.cards-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:18px;margin-top:24px;align-items:start}
+.cards-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:24px;align-items:start}
 .glass-card{
   border-radius:28px;border:1px solid rgba(255,255,255,.6);
   background:linear-gradient(150deg, rgba(255,255,255,.56), rgba(255,255,255,.3));
@@ -143,7 +143,7 @@ body{
 }
 .right-scroll .right-table{
   width:100%;margin:0 auto;
-  border-collapse:separate;border-spacing:6px;min-width:700px;font-size:12.5px;table-layout:fixed;
+  border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed;
 }
 /* 表头：左右统一固定高度，保证左侧场次/角色面板与右侧日期表逐行对齐 */
 thead th{
@@ -179,15 +179,9 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   box-shadow:0 6px 14px rgba(10,27,51,.3);
 }
 .cell{min-height:26px}
-.cell.anchor{
-  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;font-weight:600;border-color:transparent;
-  box-shadow:0 8px 18px rgba(10,27,51,.3);
-}
-.cell.car{
-  background:linear-gradient(135deg, #905831, #c07a4a);color:#fff;font-weight:600;border-color:transparent;
-  box-shadow:0 8px 18px rgba(144,88,49,.3);
-}
-.cell.time{color:#0f1e3d;font-weight:500}
+.cell.anchor{color:#334155;font-weight:500}
+.cell.car{color:#334155;font-weight:500}
+.cell.time{background:#eaf3ff;color:#0f1e3d;font-weight:500}
 .cell.empty{background:rgba(255,255,255,.32);color:rgba(31,44,68,.25);border-color:rgba(255,255,255,.4)}
 /* 提醒卡片 */
 .remind-card{align-self:start}
@@ -240,6 +234,7 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .glass-card{padding:18px 14px;border-radius:20px}
   .head-right{justify-content:flex-start;width:100%}
   .sheet-bar{max-width:100%}
+  .right-scroll .right-table{min-width:700px}
 }
 """
 
