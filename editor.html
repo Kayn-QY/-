@@ -93,18 +93,26 @@ body{
 .token-bar button.btn-primary:hover{background:linear-gradient(135deg, #12294a, #27486f)}
 .board{margin-top:10px}
 .board-scroll{overflow-x:auto;border-radius:16px}
-table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1500px;font-size:12.5px}
+#edit-table{width:100%;max-width:1280px;margin:0 auto;border-collapse:separate;border-spacing:6px;min-width:1500px;font-size:12.5px;table-layout:fixed}
+/* 冻结「场次」「角色」两列：贴合成固定列组，与日期区视觉分界 */
+.col-slot, .col-role, .slot-col, .role-col{position:sticky;z-index:2;background:rgba(244,248,255,.98)}
+.col-slot, .slot-col{left:0;z-index:3;box-shadow:1px 0 0 rgba(15,30,61,.12)}
+.col-role{left:90px;z-index:5}
+.role-col{left:90px;z-index:3}
+.col-role, .role-col{box-shadow:6px 0 10px -4px rgba(15,30,61,.28), 1px 0 0 rgba(15,30,61,.22)}
+thead th.col-slot, thead th.col-role{background:rgba(244,248,255,.98);z-index:6}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
-.date-col{min-width:104px;color:var(--text-main);font-weight:500}
+.date-col{width:104px;color:var(--text-main);font-weight:500}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .date-col .del-date{display:inline-block;margin-top:5px;font-size:11px;font-weight:400;cursor:pointer;color:var(--text-muted);text-decoration:underline;opacity:.8;transition:color .15s}
 .date-col .del-date:hover{color:#c0392b}
 td{
   border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:8px 6px;text-align:center;
   color:#334155;vertical-align:middle;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff;transition:background .15s;
+  height:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .row-slot td{border-top-color:rgba(255,255,255,.9)}
 .slot-col{width:84px;color:#334155;font-weight:500}
@@ -114,12 +122,27 @@ td{
   box-shadow:0 6px 14px rgba(10,27,51,.3);
 }
 .role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
-td.cell{min-width:92px;min-height:28px;outline:none;cursor:text}
+td.cell{min-width:92px;height:44px;outline:none;cursor:text}
 td.cell:hover{background:rgba(255,255,255,.72)}
 td.cell:focus{background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1.5px var(--clay)}
 td.cell.anchor{color:var(--clay);font-weight:600}
 td.cell.empty{color:rgba(31,44,68,.25)}
 .board-note{margin-top:14px;font-size:12px;color:var(--text-muted);padding:0 6px 6px}
+/* 复制粘贴解析预览弹窗 */
+.paste-overlay{position:fixed;inset:0;z-index:99;background:rgba(10,27,51,.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px}
+.paste-box{width:min(680px,92vw);max-height:84vh;overflow:auto;background:linear-gradient(150deg,rgba(255,255,255,.97),rgba(255,255,255,.88));border:1px solid rgba(255,255,255,.8);border-radius:20px;box-shadow:0 30px 70px rgba(10,27,51,.4);padding:22px;font-family:var(--font-sans)}
+.paste-box h3{margin-bottom:12px;color:#0f1e3d;font-size:16px}
+.paste-box p.paste-desc{margin-bottom:10px;font-size:12px;color:var(--text-muted);line-height:1.6}
+.paste-box textarea{width:100%;min-height:130px;border:1px solid rgba(15,30,61,.2);border-radius:12px;padding:10px 12px;font-size:13px;font-family:var(--font-sans);resize:vertical;outline:none;background:rgba(255,255,255,.7);box-sizing:border-box}
+.paste-box .paste-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.paste-preview{margin-top:14px;border-top:1px solid rgba(15,30,61,.12);padding-top:12px;font-size:13px}
+.paste-preview .row{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px dashed rgba(15,30,61,.08)}
+.paste-preview .row .idx{min-width:44px;color:var(--text-muted)}
+.paste-preview .row .tm{min-width:120px;color:#0f1e3d;font-weight:600}
+.paste-preview .row .nm{color:var(--clay)}
+.paste-preview .row.err{color:#c0392b}
+.paste-preview .row.err .tm,.paste-preview .row.err .nm{color:#c0392b}
+.paste-preview .no-date{color:#c0392b;font-size:12px}
 .foot{position:relative;z-index:2;text-align:center;color:rgba(31,44,68,.5);font-size:12px;letter-spacing:.10em;padding:28px 0 4px}
 .btn-primary2{
   display:inline-flex;align-items:center;background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;
@@ -168,6 +191,8 @@ td.cell.empty{color:rgba(31,44,68,.25)}
         <button class="btn-primary2" id="btn-add-date">＋ 新增日期列</button>
         <button class="btn-outline" id="btn-prev-week">上周</button>
         <button class="btn-outline" id="btn-next-week">下周</button>
+        <button class="btn-outline" id="btn-clear-range">清除日期范围</button>
+        <button class="btn-outline" id="btn-paste-parse">复制粘贴</button>
         <button class="btn-primary2" id="btn-save">保存并发布</button>
       </div>
       <div id="save-status"></div>
@@ -202,7 +227,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
 
 "use strict";
 var WEEKDAYS_JS = ["周一","周二","周三","周四","周五","周六","周日"];
-var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"],["tech","技术"],["ad","投流"]];
+var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"]];
 var SLOT_ORDER_JS = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 var MARQUEE_JS = ["Bilibili","GitHub","Vercel","Figma","Notion","Slack"];
 
@@ -450,8 +475,6 @@ const ROLES = [
   ["time", "直播时间"],
   ["car", "直播车型"],
   ["anchor", "主播"],
-  ["tech", "技术"],
-  ["ad", "投流"],
 ];
 const SLOT_ORDER = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 const MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"];
@@ -714,22 +737,29 @@ body{
 .chip:hover{transform:translateY(-1px)}
 /* 表格 */
 .table-scroll{overflow-x:auto;border-radius:16px}
-/* 冻结「场次」「角色」两列：横向滚动时始终可见 */
+/* 冻结「场次」「角色」两列：贴合成固定列组，横向滚动整组不动 */
 .col-slot, .col-role, .slot-col, .role-col{
-  position:sticky;z-index:2;background:rgba(250,252,255,.94);
-  box-shadow:1px 0 0 rgba(15,30,61,.14);
+  position:sticky;z-index:2;background:rgba(244,248,255,.98);
 }
-.col-slot, .slot-col{left:0;z-index:3}
+.col-slot, .slot-col{left:0;z-index:3;box-shadow:1px 0 0 rgba(15,30,61,.12)}
 .col-role{left:90px;z-index:5}
 .role-col{left:90px;z-index:3}
-thead th.col-slot, thead th.col-role{background:rgba(246,249,255,.97);z-index:6}
-tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(250,252,255,.96)}
-table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px}
+/* 角色列右侧：1px 分隔线 + 阴影，固定列组与日期区视觉分界 */
+.col-role, .role-col{
+  box-shadow:6px 0 10px -4px rgba(15,30,61,.28), 1px 0 0 rgba(15,30,61,.22);
+}
+thead th.col-slot, thead th.col-role{background:rgba(244,248,255,.98);z-index:6}
+tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(240,246,255,.98)}
+/* 各直播间表格等长等宽：统一 max-width + fixed 布局 + 等宽日期列 */
+.room-table table{
+  width:100%;max-width:1280px;margin:0 auto;
+  border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px;table-layout:fixed;
+}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
-.date-col{min-width:96px;font-weight:600}
+.date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .slot-col{width:84px;color:#334155;font-weight:500}
 .role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
@@ -737,6 +767,7 @@ td{
   border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:9px 6px;text-align:center;
   color:#334155;vertical-align:middle;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff;
   transition:background .15s,transform .15s;
+  height:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 tbody tr:hover td{background:rgba(255,255,255,.72)}
 .slot-badge{
@@ -1088,11 +1119,172 @@ async function save(){
   }
 }
 
+// ---------- 清除日期范围（当前直播间） ----------
+function parseDateInput(s){
+  s = String(s || "").trim();
+  let m;
+  m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+  if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
+  m = s.match(/^(\d{1,2})月(\d{1,2})[日号]?$/);
+  if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
+  return null;
+}
+async function clearRange(){
+  const room = currentRoom;
+  const startInput = prompt(`清除「${room}」的排班数据\n\n请输入开始日期（留空=今天）：\n支持 2026-08-20 / 8.20 / 8月20日`);
+  if (startInput === null) return;
+  const startStr = startInput.trim();
+  const endInput = prompt(`请输入结束日期（留空=只清除 ${startStr || "今天"} 一天）：\n支持格式同上`);
+  if (endInput === null) return;
+  const endStr = (endInput || "").trim();
+  const today = toISO(new Date());
+  const start = parseDateInput(startStr || today);
+  const end = parseDateInput(endStr || startStr || today);
+  if (!start || !end) { setStatus("日期无法识别，已取消", true); return; }
+  if (start > end) { setStatus("开始日期晚于结束日期，已取消", true); return; }
+  const targets = displayDates.filter(d => {
+    const dt = parseDate(d);
+    return dt && dt >= start && dt <= end;
+  });
+  if (!targets.length) { setStatus(`「${room}」在所选范围内没有日期列`, true); return; }
+  let count = 0;
+  targets.forEach(d => { count += Object.keys((schedule[room] && schedule[room][d]) || {}).length; });
+  const ok = confirm(`确认清除「${room}」以下日期的全部排班数据？\n\n${targets[0]} ~ ${targets[targets.length-1]}（共 ${targets.length} 个日期列，${count} 个场次记录）\n\n点击确定后将写回 GitHub 并发布。`);
+  if (!ok) return;
+  targets.forEach(d => { if (schedule[room]) delete schedule[room][d]; });
+  renderTable(); bindCells();
+  setStatus(`已清除「${room}」${targets.length} 个日期列，正在保存并发布…`, false);
+  await save();
+}
+
+// ---------- 复制粘贴自动解析 ----------
+const PASTE_STOPWORDS = new Set(["主播","直播","开播","时间","车型","场次","备注","开始","结束","上午","下午","晚上","早上","中午","房间","直播间","排班","星期","周"]);
+const ROOM_MARKERS = ["问我我","猎装","9X","8X","7X"];
+function findDateInText(text){
+  let m = text.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = text.match(/(\d{1,2})月(\d{1,2})[日号]?/);
+  if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
+  m = text.match(/(^|[^\d])(\d{1,2})[-/.](\d{1,2})([^\d]|$)/);
+  if (m) return new Date(new Date().getFullYear(), +m[2]-1, +m[3]);
+  return null;
+}
+function findTimeRanges(text){
+  const re = /(\d{1,2}):(\d{2})\s*[-~至到]\s*(\d{1,2}):(\d{2})|(\d{1,2}):(\d{2})/g;
+  const out = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m[1] !== undefined) out.push({ time: `${m[1]}:${m[2]}-${m[3]}:${m[4]}`, pos: m.index, len: m[0].length });
+    else out.push({ time: `${m[5]}:${m[6]}`, pos: m.index, len: m[0].length });
+  }
+  return out;
+}
+function pickName(s){
+  const re = /([\u4e00-\u9fa5]{2,4})/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const w = m[1];
+    if (PASTE_STOPWORDS.has(w)) continue;
+    if (/\d/.test(w)) continue;
+    return w;
+  }
+  return "";
+}
+function extractAnchor(seg){
+  for (const rm of ROOM_MARKERS) {
+    const idx = seg.indexOf(rm);
+    if (idx >= 0) {
+      const name = pickName(seg.slice(idx + rm.length));
+      if (name) return name;
+    }
+  }
+  return pickName(seg);
+}
+function parsePasteText(text){
+  const date = findDateInText(text);
+  const times = findTimeRanges(text);
+  const entries = [];
+  if (!times.length) return { ok: false, reason: "未识别到任何时间区间（如 10:00-12:00）", date: null, entries };
+  times.forEach((t, i) => {
+    const segStart = t.pos + t.len;
+    const segEnd = i + 1 < times.length ? times[i+1].pos : text.length;
+    const seg = text.slice(segStart, segEnd);
+    const anchor = extractAnchor(seg);
+    entries.push({
+      time: t.time,
+      anchor,
+      raw: seg.trim().replace(/\s+/g, " ").slice(0, 30),
+      ok: true
+    });
+  });
+  return { ok: true, reason: "", date, entries };
+}
+function openPasteModal(){
+  const overlay = document.createElement("div");
+  overlay.className = "paste-overlay";
+  overlay.innerHTML = `
+    <div class="paste-box">
+      <h3>复制粘贴排班</h3>
+      <p class="paste-desc">粘贴排班文字（自动识别日期 / 时间区间 / 主播名，按时间顺序写入第 1 场起）。直播间以当前选中「${escapeHtml(currentRoom)}」为准，文字中的直播间标识忽略；主播取紧跟直播间后的第一个名字，其余忽略。</p>
+      <textarea id="paste-text" placeholder="示例：&#10;8月17日 7X&#10;10:00-12:00 李润霞&#10;12:00-14:00 曹晶晶&#10;14:00-16:00 鲁向阳"></textarea>
+      <div class="paste-actions">
+        <button class="btn-primary2" id="paste-parse-btn">解析预览</button>
+        <button class="btn-outline" id="paste-cancel-btn">取消</button>
+      </div>
+      <div class="paste-preview" id="paste-preview"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#paste-cancel-btn").addEventListener("click", () => overlay.remove());
+  overlay.querySelector("#paste-parse-btn").addEventListener("click", () => {
+    const text = overlay.querySelector("#paste-text").value;
+    const result = parsePasteText(text);
+    const box = overlay.querySelector("#paste-preview");
+    if (!result.ok) {
+      box.innerHTML = `<div class="no-date">${escapeHtml(result.reason)}，请检查粘贴内容。</div>`;
+      return;
+    }
+    let html = "";
+    if (!result.date) html += '<div class="no-date">未识别到日期（将使用今天），如不符请手动添加日期列后重试。</div>';
+    const dateStr = result.date ? toISO(result.date) : "（未识别）";
+    html += `<div class="row"><span class="idx">目标日期</span><span class="tm">${escapeHtml(dateStr)}</span><span class="nm">直播间：${escapeHtml(currentRoom)}</span></div>`;
+    result.entries.forEach((e, i) => {
+      html += `<div class="row${e.ok && e.anchor ? "" : " err"}"><span class="idx">第${i+1}场</span><span class="tm">${escapeHtml(e.time)}</span><span class="nm">${escapeHtml(e.anchor || "未识别主播（标红）")}</span></div>`;
+    });
+    html += `<div class="paste-actions"><button class="btn-primary2" id="paste-confirm-btn">确认写入并保存</button></div>`;
+    box.innerHTML = html;
+    box.querySelector("#paste-confirm-btn").addEventListener("click", () => {
+      overlay.remove();
+      confirmPaste(result);
+    });
+  });
+}
+async function confirmPaste(result){
+  if (!result.date) { setStatus("未识别到日期，已取消写入", true); return; }
+  const iso = toISO(result.date);
+  if (!schedule[currentRoom]) schedule[currentRoom] = {};
+  if (!schedule[currentRoom][iso]) schedule[currentRoom][iso] = {};
+  result.entries.forEach((e, i) => {
+    const slot = SLOT_ORDER[i];
+    if (!slot) return;
+    const prev = schedule[currentRoom][iso][slot] || {};
+    schedule[currentRoom][iso][slot] = { time: e.time, car: prev.car || "", anchor: e.anchor };
+  });
+  if (!displayDates.includes(iso)) { displayDates.push(iso); displayDates.sort(); }
+  renderTable(); bindCells();
+  const hasErr = result.entries.some(e => !e.anchor);
+  setStatus(`已写入 ${iso} 共 ${result.entries.length} 场${hasErr ? "（部分主播未识别，可手动补充）" : ""}，正在保存并发布…`, hasErr);
+  await save();
+}
+
 function init(){
   $("btn-add-date").addEventListener("click", addDateColumn);
   $("btn-prev-week").addEventListener("click", () => shiftWeek(-7));
   $("btn-next-week").addEventListener("click", () => shiftWeek(7));
   $("btn-save").addEventListener("click", save);
+  $("btn-clear-range").addEventListener("click", clearRange);
+  $("btn-paste-parse").addEventListener("click", openPasteModal);
   $("btn-token-save").addEventListener("click", () => {
     const t = $("token-input").value.trim();
     if (!t) { setStatus("Token 不能为空", true); return; }

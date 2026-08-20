@@ -22,8 +22,6 @@ ROLES = [
     ("time", "直播时间"),
     ("car", "直播车型"),
     ("anchor", "主播"),
-    ("tech", "技术"),
-    ("ad", "投流"),
 ]
 SLOT_ORDER = ["第1场", "第2场", "第3场", "第4场", "第5场", "第6场"]
 MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"]
@@ -126,22 +124,29 @@ body{
 .chip:hover{transform:translateY(-1px)}
 /* 表格 */
 .table-scroll{overflow-x:auto;border-radius:16px}
-/* 冻结「场次」「角色」两列：横向滚动时始终可见 */
+/* 冻结「场次」「角色」两列：贴合成固定列组，横向滚动整组不动 */
 .col-slot, .col-role, .slot-col, .role-col{
-  position:sticky;z-index:2;background:rgba(250,252,255,.94);
-  box-shadow:1px 0 0 rgba(15,30,61,.14);
+  position:sticky;z-index:2;background:rgba(244,248,255,.98);
 }
-.col-slot, .slot-col{left:0;z-index:3}
+.col-slot, .slot-col{left:0;z-index:3;box-shadow:1px 0 0 rgba(15,30,61,.12)}
 .col-role{left:90px;z-index:5}
 .role-col{left:90px;z-index:3}
-thead th.col-slot, thead th.col-role{background:rgba(246,249,255,.97);z-index:6}
-tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(250,252,255,.96)}
-table{width:100%;border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px}
+/* 角色列右侧：1px 分隔线 + 阴影，固定列组与日期区视觉分界 */
+.col-role, .role-col{
+  box-shadow:6px 0 10px -4px rgba(15,30,61,.28), 1px 0 0 rgba(15,30,61,.22);
+}
+thead th.col-slot, thead th.col-role{background:rgba(244,248,255,.98);z-index:6}
+tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(240,246,255,.98)}
+/* 各直播间表格等长等宽：统一 max-width + fixed 布局 + 等宽日期列 */
+.room-table table{
+  width:100%;max-width:1280px;margin:0 auto;
+  border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px;table-layout:fixed;
+}
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
-.date-col{min-width:96px;font-weight:600}
+.date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .slot-col{width:84px;color:#334155;font-weight:500}
 .role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
@@ -149,6 +154,7 @@ td{
   border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:9px 6px;text-align:center;
   color:#334155;vertical-align:middle;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff;
   transition:background .15s,transform .15s;
+  height:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 tbody tr:hover td{background:rgba(255,255,255,.72)}
 .slot-badge{
@@ -225,7 +231,7 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 PAGE_JS = r"""
 "use strict";
 var WEEKDAYS_JS = ["周一","周二","周三","周四","周五","周六","周日"];
-var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"],["tech","技术"],["ad","投流"]];
+var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"]];
 var SLOT_ORDER_JS = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 var MARQUEE_JS = ["Bilibili","GitHub","Vercel","Figma","Notion","Slack"];
 
