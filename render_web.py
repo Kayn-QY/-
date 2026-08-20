@@ -66,11 +66,36 @@ body{
   background:linear-gradient(120deg, rgba(10,27,51,.9), rgba(10,27,51,.55) 50%, rgba(144,88,49,.55));
   mix-blend-mode:multiply;
 }
-.hero-inner{position:relative;padding:56px 48px;font-family:var(--font-display);color:#fff}
+.hero-body{position:relative;width:100%;display:flex;align-items:center;gap:32px;padding:44px 48px}
+.hero-inner{flex:0 0 auto;font-family:var(--font-display);color:#fff;min-width:0}
 .hero-eyebrow{font-size:13px;color:var(--peach);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;text-shadow:0 1px 8px rgba(0,0,0,.2)}
 .hero h1{font-size:clamp(30px,4.6vw,46px);font-weight:700;line-height:1.1;max-width:560px;text-shadow:0 2px 20px rgba(0,0,0,.25)}
 .hero-sub{margin-top:14px;font-size:15px;font-family:var(--font-sans);color:rgba(255,255,255,.85);max-width:520px;text-shadow:0 1px 10px rgba(0,0,0,.2)}
 .hero-actions{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap;font-family:var(--font-sans)}
+/* 紧凑提醒卡片 - 全直播间 */
+.hero-remind{
+  flex:1 1 440px;min-width:320px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.4);
+  border-radius:24px;padding:16px 18px;backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
+  box-shadow:0 20px 50px rgba(10,27,51,.25), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.hero-remind-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.hero-remind-title{font-size:13px;font-weight:700;color:#fff;letter-spacing:.02em}
+.hero-remind-badge{font-size:10.5px;color:var(--peach);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:2px 9px;background:rgba(255,255,255,.12)}
+.hero-remind-list{display:flex;flex-direction:column;gap:5px}
+.hero-remind-item{
+  display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.9);border-radius:10px;padding:6px 10px;
+  box-shadow:inset 0 1px 0 #fff, 0 2px 8px rgba(10,27,51,.08);
+}
+.hero-remind-room{font-weight:700;color:#fff;background:linear-gradient(135deg,#0a1b33,#1e3a5f);border-radius:7px;padding:2px 8px;font-size:11px;flex-shrink:0}
+.hero-remind-info{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.hero-remind-slot{font-size:12px;font-weight:600;color:#0a1b33;white-space:nowrap}
+.hero-remind-name{font-size:11.5px;color:var(--clay);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-remind-name.off{color:var(--text-muted);font-weight:500}
+.hero-remind-time{font-size:11px;color:var(--text-muted);white-space:nowrap;margin-left:auto}
+.remind-empty{
+  margin-top:12px;background:rgba(255,255,255,.4);border:1px dashed rgba(255,255,255,.7);border-radius:16px;
+  padding:18px;font-size:13px;color:var(--text-muted);text-align:center;
+}
 .btn-primary{
   display:inline-flex;align-items:center;background:linear-gradient(135deg, #fff, rgba(255,255,255,.85));
   color:#0a1b33;border-radius:999px;padding:12px 24px;font-size:13px;font-weight:600;text-decoration:none;
@@ -183,16 +208,7 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 .cell.car{color:#334155;font-weight:500}
 .cell.time{background:#eaf3ff;color:#0f1e3d;font-weight:500}
 .cell.empty{background:rgba(255,255,255,.32);color:rgba(31,44,68,.25);border-color:rgba(255,255,255,.4)}
-/* 提醒卡片 */
-.remind-card{align-self:start}
-.remind-item{
-  margin-top:10px;background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.65);border-radius:16px;
-  padding:12px 14px;font-size:13px;color:#334155;box-shadow:inset 0 1px 0 #fff;display:flex;align-items:center;gap:10px;
-}
-.remind-time{font-weight:600;color:#0a1b33;white-space:nowrap}
-.remind-slot{color:var(--text-muted);white-space:nowrap}
-.remind-name{color:var(--clay);font-weight:600}
-.remind-name.off{color:var(--text-muted);font-weight:500}
+/* 提醒卡片（hero 区紧凑版，样式见 .hero-remind*） */
 .remind-empty{
   margin-top:12px;background:rgba(255,255,255,.4);border:1px dashed rgba(255,255,255,.7);border-radius:16px;
   padding:18px;font-size:13px;color:var(--text-muted);text-align:center;
@@ -228,9 +244,14 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 @media (max-width:1024px){
   .cards-grid{grid-template-columns:1fr}
   .content{padding:72px 18px 48px}
+  .hero-body{flex-direction:column;align-items:stretch}
+  .hero-remind{width:100%}
 }
 @media (max-width:640px){
-  .hero-inner{padding:40px 24px}
+  .hero-body{padding:28px 20px}
+  .hero-inner{padding:0}
+  .hero-remind{padding:14px 14px}
+  .hero-remind-item{padding:5px 8px}
   .glass-card{padding:18px 14px;border-radius:20px}
   .head-right{justify-content:flex-start;width:100%}
   .sheet-bar{max-width:100%}
@@ -370,28 +391,38 @@ function nextRemind(room){
   }
   return best;
 }
+function countdownText(start){
+  var diffMin = Math.round((start - bjNow()) / 60000);
+  if (diffMin < 1) return "即将开播";
+  if (diffMin < 60) return diffMin + "分钟后";
+  var h = diffMin / 60;
+  if (h < 24) return (Math.round(h * 10) / 10) + "小时后";
+  var d = Math.floor(h / 24);
+  return d + "天后";
+}
 function buildRemind(){
   var items = [];
   ROOMS.forEach(function(room){
     var b = nextRemind(room);
     if (!b){
-      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-name off">暂无排班</span></div>');
+      items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">暂无排班</span><span class="hero-remind-name off">暂无数据</span></div><span class="hero-remind-time">—</span></div>');
       return;
     }
-    var st = pad2(b.start.getHours()) + ":" + pad2(b.start.getMinutes());
+    var st = b.slot + " " + pad2(b.start.getHours()) + ":" + pad2(b.start.getMinutes());
+    var cd = countdownText(b.start);
     if (b.anchor){
-      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-slot">' + st + '</span><span class="remind-name">' + esc(b.anchor) + ' 开播</span></div>');
+      items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name">' + esc(b.anchor) + '</span></div><span class="hero-remind-time">' + cd + '</span></div>');
     } else {
-      items.push('<div class="remind-item"><span class="remind-time">' + esc(room) + '</span><span class="remind-slot">' + st + '</span><span class="remind-name off">无人播</span></div>');
+      items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name off">无人播</span></div><span class="hero-remind-time">' + cd + '</span></div>');
     }
   });
   if (!items.length) return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>';
-  return '<div class="remind-list">' + items.join("") + '</div>';
+  return '<div class="hero-remind-list">' + items.join("") + '</div>';
 }
 function updateRemind(){
   var el = document.getElementById("reminder");
   if (!el) return;
-  var list = el.querySelector(".remind-list");
+  var list = el.querySelector(".hero-remind-list");
   var html = buildRemind();
   if (list) list.outerHTML = html;
   else el.insertAdjacentHTML("beforeend", html);
@@ -415,20 +446,18 @@ function renderHtml(updatedAt){
   h += '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n';
   h += '<style>__CSS_TEMPLATE__</style>\n</head>\n<body>\n';
   h += '<main class="content">\n';
-  h += '  <section class="hero" id="top">\n    <div class="hero-inner">\n';
+  h += '  <section class="hero" id="top">\n    <div class="hero-body">\n      <div class="hero-inner">\n';
   h += '      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>\n';
   h += '      <h1>极氪日播间排班</h1>\n';
-  h += '      <p class="hero-sub">7X · 8X · 9X · 猎装 多直播间独立排班 · 主播开播准时提醒</p>\n';
-  h += '      <div class="hero-actions">\n        <a class="btn-primary" href="#schedule">查看排班</a>\n        <a class="btn-glass" href="editor.html" target="_blank">在线编辑</a>\n      </div>\n    </div>\n  </section>\n';
+  h += '      <p class="hero-sub">' + ROOMS.join(" · ") + ' · 多直播间独立排班</p>\n';
+  h += '      <div class="hero-actions">\n        <a class="btn-primary" href="#schedule">查看排班</a>\n        <a class="btn-glass" href="editor.html" target="_blank">在线编辑</a>\n      </div>\n      </div>\n';
+  h += '      <aside class="hero-remind" id="reminder">\n        <div class="hero-remind-head">\n          <span class="hero-remind-title">最近排班提醒</span>\n          <span class="hero-remind-badge">全部直播间</span>\n        </div>\n        ' + remindList + '\n      </aside>\n    </div>\n  </section>\n';
   h += '  ' + marquee + '\n';
   h += '  <div class="cards-grid">\n';
   h += '    <section class="glass-card" id="schedule">\n      <header class="card-head">\n';
   h += '        <div>\n          <h2>排班表</h2>\n          <p class="sub">数据更新 <time>' + esc(updatedAt) + '</time></p>\n        </div>\n';
   h += '        <div class="head-right">\n          <div class="week-nav">\n            <button class="week-btn" id="btn-prev-week">‹ 上周</button>\n            <span class="week-label" id="week-label">' + weekLabel() + '</span>\n            <button class="week-btn" id="btn-next-week">下周 ›</button>\n          </div>\n          <div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n          <div class="stats-wrap">' + statsAll + '</div>\n        </div>\n      </header>\n';
-  h += '      <div class="room-tables">' + roomTables + '</div>\n    </section>\n';
-  h += '    <aside class="glass-card remind-card" id="reminder">\n      <header class="card-head">\n';
-  h += '        <div>\n          <h2>最近排班提醒</h2>\n          <p class="sub">全部直播间 · 到点自动提醒</p>\n        </div>\n      </header>\n';
-  h += '      ' + remindList + '\n    </aside>\n  </div>\n';
+  h += '      <div class="room-tables">' + roomTables + '</div>\n    </section>\n  </div>\n';
   h += '  <div class="note" id="help">\n';
   h += '    <span>深蓝为主播 · 赤陶为车型 · 圆点为未排班（周末/节假日/未填写）</span>\n';
   h += '    <span class="tag">Frosted 3D Style · Marvis Schedule</span>\n  </div>\n';
@@ -615,6 +644,19 @@ def build_remind_html(schedule, rooms):
         m = re.match(r"^(\d{1,2}):(\d{2})", str(t or "").strip())
         return int(m.group(1)) * 60 + int(m.group(2)) if m else -1
 
+    def countdown_text(start):
+        diff_min = int(round((start - now_bj).total_seconds() / 60))
+        if diff_min < 1:
+            return "即将开播"
+        if diff_min < 60:
+            return f"{diff_min}分钟后"
+        h = diff_min / 60
+        if h < 24:
+            h = round(h * 10) / 10
+            return f"{h:g}小时后"
+        d = int(h // 24)
+        return f"{d}天后"
+
     items = []
     for room in rooms:
         data = schedule.get(room, {})
@@ -636,29 +678,34 @@ def build_remind_html(schedule, rooms):
                 if start <= now_bj:
                     continue
                 if best is None or start < best["start"]:
-                    best = {"start": start, "anchor": (info.get("anchor") or "").strip()}
+                    best = {"start": start, "slot": slot, "anchor": (info.get("anchor") or "").strip()}
         if best is None:
             items.append(
-                f'<div class="remind-item"><span class="remind-time">{room}</span>'
-                f'<span class="remind-name off">暂无排班</span></div>'
+                f'<div class="hero-remind-item"><span class="hero-remind-room">{room}</span>'
+                f'<div class="hero-remind-info"><span class="hero-remind-slot">暂无排班</span>'
+                f'<span class="hero-remind-name off">暂无数据</span></div>'
+                f'<span class="hero-remind-time">—</span></div>'
             )
             continue
-        st = best["start"].strftime("%H:%M")
+        st = best["slot"] + " " + best["start"].strftime("%H:%M")
+        cd = countdown_text(best["start"])
         if best["anchor"]:
             items.append(
-                f'<div class="remind-item"><span class="remind-time">{room}</span>'
-                f'<span class="remind-slot">{st}</span>'
-                f'<span class="remind-name">{best["anchor"]} 开播</span></div>'
+                f'<div class="hero-remind-item"><span class="hero-remind-room">{room}</span>'
+                f'<div class="hero-remind-info"><span class="hero-remind-slot">{st}</span>'
+                f'<span class="hero-remind-name">{best["anchor"]}</span></div>'
+                f'<span class="hero-remind-time">{cd}</span></div>'
             )
         else:
             items.append(
-                f'<div class="remind-item"><span class="remind-time">{room}</span>'
-                f'<span class="remind-slot">{st}</span>'
-                f'<span class="remind-name off">无人播</span></div>'
+                f'<div class="hero-remind-item"><span class="hero-remind-room">{room}</span>'
+                f'<div class="hero-remind-info"><span class="hero-remind-slot">{st}</span>'
+                f'<span class="hero-remind-name off">无人播</span></div>'
+                f'<span class="hero-remind-time">{cd}</span></div>'
             )
     if not items:
         return '<div class="remind-empty">各直播间暂无排班数据，添加后自动生成提醒</div>'
-    return '<div class="remind-list">' + "".join(items) + "</div>"
+    return '<div class="hero-remind-list">' + "".join(items) + "</div>"
 
 
 def render_html(schedule, cfg):
@@ -714,14 +761,23 @@ def render_html(schedule, cfg):
 <main class="content">
   <!-- Hero -->
   <section class="hero" id="top">
-    <div class="hero-inner">
-      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>
-      <h1>极氪日播间排班</h1>
-      <p class="hero-sub">7X · 8X · 9X · 猎装 多直播间独立排班 · 主播开播准时提醒</p>
-      <div class="hero-actions">
-        <a class="btn-primary" href="#schedule">查看排班</a>
-        <a class="btn-glass" href="editor.html" target="_blank">在线编辑</a>
+    <div class="hero-body">
+      <div class="hero-inner">
+        <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>
+        <h1>极氪日播间排班</h1>
+        <p class="hero-sub">{" · ".join(rooms)} · 多直播间独立排班</p>
+        <div class="hero-actions">
+          <a class="btn-primary" href="#schedule">查看排班</a>
+          <a class="btn-glass" href="editor.html" target="_blank">在线编辑</a>
+        </div>
       </div>
+      <aside class="hero-remind" id="reminder">
+        <div class="hero-remind-head">
+          <span class="hero-remind-title">最近排班提醒</span>
+          <span class="hero-remind-badge">全部直播间</span>
+        </div>
+        {remind_list}
+      </aside>
     </div>
   </section>
 
@@ -748,16 +804,6 @@ def render_html(schedule, cfg):
       </header>
       <div class="room-tables">{room_tables}</div>
     </section>
-
-    <aside class="glass-card remind-card" id="reminder">
-      <header class="card-head">
-        <div>
-          <h2>最近排班提醒</h2>
-          <p class="sub">全部直播间 · 到点自动提醒</p>
-        </div>
-      </header>
-      {remind_list}
-    </aside>
   </div>
 
   <div class="note" id="help">
