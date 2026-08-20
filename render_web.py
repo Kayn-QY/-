@@ -143,16 +143,27 @@ body{
 }
 .right-scroll .right-table{
   width:100%;margin:0 auto;
-  border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px;table-layout:fixed;
+  border-collapse:separate;border-spacing:6px;min-width:700px;font-size:12.5px;table-layout:fixed;
 }
-/* 表头 */
+/* 表头：左右统一固定高度，保证左侧场次/角色面板与右侧日期表逐行对齐 */
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
+  height:56px;vertical-align:middle;
 }
 .left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
+.date-col.today{background:linear-gradient(135deg, rgba(144,88,49,.18), rgba(192,122,74,.12));box-shadow:inset 0 0 0 1.5px rgba(144,88,49,.55)}
+/* 周导航 */
+.week-nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.week-btn{
+  border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:#334155;
+  border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--font-sans);
+  box-shadow:inset 0 1px 0 #fff;transition:all .2s;white-space:nowrap;
+}
+.week-btn:hover{background:rgba(255,255,255,.78)}
+.week-label{font-size:12.5px;font-weight:600;color:var(--text-main);white-space:nowrap;letter-spacing:.02em}
 .slot-col{width:92px;color:#334155;font-weight:500}
 .role-col{width:96px;color:var(--text-muted);font-size:11.5px;font-weight:500}
 td{
@@ -235,7 +246,7 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 # 页面内嵌 JS：切换直播间 + 新增直播间 + 重新渲染（与 editor.html 中 PAGE_JS 保持一致，禁止使用反引号/模板字符串）
 PAGE_JS = r"""
 "use strict";
-var WEEKDAYS_JS = ["周一","周二","周三","周四","周五","周六","周日"];
+var WEEKDAYS_JS = ["周日","周一","周二","周三","周四","周五","周六"];
 var ROLES_JS = [["time","直播时间"],["car","直播车型"],["anchor","主播"]];
 var SLOT_ORDER_JS = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 var MARQUEE_JS = ["Bilibili","GitHub","Vercel","Figma","Notion","Slack"];
@@ -252,19 +263,36 @@ function parseD(s){ var m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/); if (
 function weekOf(d){ var dt = parseD(d); return dt ? WEEKDAYS_JS[dt.getDay()] : ""; }
 
 function displayDatesFor(){
-  var dates = (CFG.display_dates && CFG.display_dates.length) ? CFG.display_dates.slice() : [];
-  ROOMS.forEach(function(r){
-    var data = SCHEDULE[r] || {};
-    Object.keys(data).forEach(function(d){ if (dates.indexOf(d) < 0) dates.push(d); });
-  });
-  dates.sort();
-  return dates;
+  return weekDates();
+}
+/* ---- 7天周窗口：默认本周（周一~周日），上周/下周翻页 ---- */
+function toISO(d){ return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()); }
+function mondayOf(d){ var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); var day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); return x; }
+var weekStart = mondayOf(bjNow());
+function weekDates(){
+  var out = [];
+  for (var i = 0; i < 7; i++){ var x = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i); out.push(toISO(x)); }
+  return out;
+}
+function todayISO(){ return toISO(bjNow()); }
+function fmtShort(d){ return d.slice(5).replace("-", "/"); }
+function weekLabel(){ var ws = weekDates(); return fmtShort(ws[0]) + " ~ " + fmtShort(ws[6]); }
+function shiftWeek(n){ weekStart.setDate(weekStart.getDate() + n * 7); renderAllTables(); }
+function renderAllTables(){
+  var active = "";
+  document.querySelectorAll(".sheet-tab").forEach(function(t){ if (t.classList.contains("active")) active = t.dataset.room; });
+  var wrap = document.querySelector(".room-tables");
+  if (wrap) wrap.innerHTML = ROOMS.map(buildRoomTable).join("");
+  if (active) switchRoom(active);
+  var lbl = document.getElementById("week-label");
+  if (lbl) lbl.textContent = weekLabel();
 }
 
 function buildRoomTable(room){
   var dates = displayDatesFor();
   var data = SCHEDULE[room] || {};
-  var dateHeader = dates.map(function(d){ return '<th class="date-col">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
+  var today = todayISO();
+  var dateHeader = dates.map(function(d){ return '<th class="date-col' + (d === today ? " today" : "") + '">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
   var leftRows = [];
   var rightRows = [];
   SLOT_ORDER_JS.forEach(function(slot){
@@ -401,7 +429,7 @@ function renderHtml(updatedAt){
   h += '  <div class="cards-grid">\n';
   h += '    <section class="glass-card" id="schedule">\n      <header class="card-head">\n';
   h += '        <div>\n          <h2>排班表</h2>\n          <p class="sub">数据更新 <time>' + esc(updatedAt) + '</time></p>\n        </div>\n';
-  h += '        <div class="head-right">\n          <div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n          <div class="stats-wrap">' + statsAll + '</div>\n        </div>\n      </header>\n';
+  h += '        <div class="head-right">\n          <div class="week-nav">\n            <button class="week-btn" id="btn-prev-week">‹ 上周</button>\n            <span class="week-label" id="week-label">' + weekLabel() + '</span>\n            <button class="week-btn" id="btn-next-week">下周 ›</button>\n          </div>\n          <div class="sheet-bar" id="sheet-bar">' + tabs + '</div>\n          <div class="stats-wrap">' + statsAll + '</div>\n        </div>\n      </header>\n';
   h += '      <div class="room-tables">' + roomTables + '</div>\n    </section>\n';
   h += '    <aside class="glass-card remind-card" id="reminder">\n      <header class="card-head">\n';
   h += '        <div>\n          <h2>最近排班提醒</h2>\n          <p class="sub">全部直播间 · 到点自动提醒</p>\n        </div>\n      </header>\n';
@@ -469,6 +497,10 @@ function initRoomPage(){
     var tab = e.target.closest(".sheet-tab");
     if (tab) { switchRoom(tab.dataset.room); return; }
   });
+  var pw = document.getElementById("btn-prev-week");
+  if (pw) pw.addEventListener("click", function(){ shiftWeek(-1); });
+  var nw = document.getElementById("btn-next-week");
+  if (nw) nw.addEventListener("click", function(){ shiftWeek(1); });
   updateRemind();
   setInterval(updateRemind, 30000);
 }
@@ -509,28 +541,17 @@ def rooms_of(cfg, schedule):
     return rooms
 
 
-def display_dates(cfg, schedule, rooms):
-    """确定展示的日期列：优先用配置，否则合并所有房间数据范围"""
-    if cfg.get("display_dates"):
-        return cfg["display_dates"]
-    all_dates = set()
-    for room in rooms:
-        all_dates.update(schedule.get(room, {}).keys())
-    dates = sorted(all_dates)
-    if not dates:
-        return []
-    start, end = datetime.strptime(dates[0], "%Y-%m-%d"), datetime.strptime(dates[-1], "%Y-%m-%d")
-    result = []
-    cur = start
-    while cur <= end:
-        result.append(cur.strftime("%Y-%m-%d"))
-        cur += timedelta(days=1)
-    return result
+def current_week_dates():
+    """本周（周一~周日）7 天，按北京时间。展示/编辑均按自然周窗口显示。"""
+    now_bj = datetime.utcnow() + timedelta(hours=8)
+    monday = now_bj - timedelta(days=now_bj.weekday())
+    return [(monday + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
 
 
-def build_room_table_html(room, data, dates):
+def build_room_table_html(room, data, dates, active=False):
+    today = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d")
     date_header = "".join(
-        f'<th class="date-col">{d[5:].replace("-", "/")}<span class="wd">{WEEKDAYS[datetime.strptime(d, "%Y-%m-%d").weekday()]}</span></th>'
+        f'<th class="date-col{" today" if d == today else ""}">{d[5:].replace("-", "/")}<span class="wd">{WEEKDAYS[datetime.strptime(d, "%Y-%m-%d").weekday()]}</span></th>'
         for d in dates
     )
     left_rows = []
@@ -561,7 +582,7 @@ def build_room_table_html(room, data, dates):
                 f'<tr{tr_cls}>{"".join(cells)}</tr>'
             )
     return (
-        f'<div class="room-table" data-room="{room}">'
+        f'<div class="room-table{" active" if active else ""}" data-room="{room}">'
         f'<div class="schedule-wrap">'
         f'<div class="left-panel"><table class="left-table">'
         f'<thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th></tr></thead>'
@@ -649,11 +670,11 @@ def render_html(schedule, cfg):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     schedule = migrate_schedule(schedule)
     rooms = rooms_of(cfg, schedule)
-    dates = display_dates(cfg, schedule, rooms)
+    dates = current_week_dates()
     updated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     room_tables = "".join(
-        build_room_table_html(room, schedule.get(room, {}), dates) for room in rooms
+        build_room_table_html(room, schedule.get(room, {}), dates, active=(i == 0)) for i, room in enumerate(rooms)
     )
     tabs = "".join(
         f'<button class="sheet-tab{" active" if i == 0 else ""}" data-room="{room}">{room}</button>'
@@ -673,6 +694,9 @@ def render_html(schedule, cfg):
 
     def _js_json(obj):
         return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
+
+    week_start_short = dates[0][5:].replace("-", "/")
+    week_end_short = dates[6][5:].replace("-", "/")
 
     page_js = PAGE_JS.replace("__SCHEDULE_JSON__", _js_json(schedule))
     page_js = page_js.replace("__CFG_JSON__", _js_json(cfg))
@@ -718,6 +742,11 @@ def render_html(schedule, cfg):
           <p class="sub">数据更新 <time>{updated_at}</time></p>
         </div>
         <div class="head-right">
+          <div class="week-nav">
+            <button class="week-btn" id="btn-prev-week">‹ 上周</button>
+            <span class="week-label" id="week-label">{week_start_short} ~ {week_end_short}</span>
+            <button class="week-btn" id="btn-next-week">下周 ›</button>
+          </div>
           <div class="sheet-bar" id="sheet-bar">{tabs}</div>
           <div class="stats-wrap">{stats_all}</div>
         </div>
