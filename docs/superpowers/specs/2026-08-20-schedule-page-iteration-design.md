@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 9d4a1ded685a81c80cf27c0c57895e9b_52e761219c4111f19046525400287e28
+    ReservedCode1: SuGV06qrjSvTKUI4cTV9iIgYAQhESnizKVEBsvxn8MJ10aEoz3H2PXcm6/AtdE2ARJqMCb+AeIIdNo8GRVUcF7LznmpFzpOHSwOKaYFlIFu2BBpMMMjqXaPQSCjUjaJEVOdMkxMeCCA7RiBKUOQWVevh7vUca8ZCZS/n0hbXKsws3hS+w6sfndtKgr0=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 9d4a1ded685a81c80cf27c0c57895e9b_52e761219c4111f19046525400287e28
+    ReservedCode2: SuGV06qrjSvTKUI4cTV9iIgYAQhESnizKVEBsvxn8MJ10aEoz3H2PXcm6/AtdE2ARJqMCb+AeIIdNo8GRVUcF7LznmpFzpOHSwOKaYFlIFu2BBpMMMjqXaPQSCjUjaJEVOdMkxMeCCA7RiBKUOQWVevh7vUca8ZCZS/n0hbXKsws3hS+w6sfndtKgr0=
+---
+
 # 排班页五项迭代设计（2026-08-20）
 
 ## 背景
@@ -50,3 +61,4 @@
 - 各直播间表格同宽、列等宽、行等高
 - 编辑页可按日期范围清除当前直播间数据
 - 粘贴文本可自动解析日期/时间/主播并预览后写入
+*（内容由AI生成，仅供参考）*
