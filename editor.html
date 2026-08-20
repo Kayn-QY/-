@@ -92,19 +92,34 @@ body{
 }
 .token-bar button.btn-primary:hover{background:linear-gradient(135deg, #12294a, #27486f)}
 .board{margin-top:10px}
-.board-scroll{overflow-x:auto;border-radius:16px}
-#edit-table{width:100%;max-width:1280px;margin:0 auto;border-collapse:separate;border-spacing:6px;min-width:1500px;font-size:12.5px;table-layout:fixed}
-/* 冻结「场次」「角色」两列：贴合成固定列组，与日期区视觉分界 */
-.col-slot, .col-role, .slot-col, .role-col{position:sticky;z-index:2;background:rgba(244,248,255,.98)}
-.col-slot, .slot-col{left:0;z-index:3;box-shadow:1px 0 0 rgba(15,30,61,.12)}
-.col-role{left:90px;z-index:5}
-.role-col{left:90px;z-index:3}
-.col-role, .role-col{box-shadow:6px 0 10px -4px rgba(15,30,61,.28), 1px 0 0 rgba(15,30,61,.22)}
-thead th.col-slot, thead th.col-role{background:rgba(244,248,255,.98);z-index:6}
+/* 表格：左右双容器方案A —— 左面板固定承载场次/角色，右侧独立横向滚动日期表 */
+.schedule-wrap{
+  display:flex;align-items:flex-start;gap:10px;
+  border-radius:16px;background:rgba(240,246,255,.45);
+}
+/* 左面板：场次+角色固定，不随横向滚动移动，纵向与右侧一起滚动 */
+.left-panel{
+  flex:0 0 auto;width:194px;position:sticky;left:0;z-index:5;align-self:stretch;
+  background:linear-gradient(150deg, rgba(244,248,255,.98), rgba(236,243,255,.96));
+  border-radius:16px;border:1px solid rgba(255,255,255,.8);
+  box-shadow:8px 0 16px -8px rgba(15,30,61,.22), 1px 0 0 rgba(15,30,61,.12);
+}
+.left-panel .left-table{width:100%;border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed}
+/* 右侧：日期表横向滚动容器 */
+.right-scroll{
+  flex:1 1 auto;min-width:0;overflow-x:auto;
+  border-radius:16px;background:rgba(255,255,255,.32);
+}
+.right-scroll #edit-table{
+  width:100%;margin:0 auto;
+  border-collapse:separate;border-spacing:6px;min-width:1500px;font-size:12.5px;table-layout:fixed;
+}
+/* 表头 */
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
+.left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:104px;color:var(--text-main);font-weight:500}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .date-col .del-date{display:inline-block;margin-top:5px;font-size:11px;font-weight:400;cursor:pointer;color:var(--text-muted);text-decoration:underline;opacity:.8;transition:color .15s}
@@ -115,13 +130,13 @@ td{
   height:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .row-slot td{border-top-color:rgba(255,255,255,.9)}
-.slot-col{width:84px;color:#334155;font-weight:500}
+.slot-col{width:92px;color:#334155;font-weight:500}
 .slot-badge{
   display:inline-flex;align-items:center;justify-content:center;min-width:46px;padding:4px 8px;border-radius:999px;
   background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;font-weight:600;font-size:11px;
   box-shadow:0 6px 14px rgba(10,27,51,.3);
 }
-.role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
+.role-col{width:96px;color:var(--text-muted);font-size:11.5px;font-weight:500}
 td.cell{min-width:92px;height:44px;outline:none;cursor:text}
 td.cell:hover{background:rgba(255,255,255,.72)}
 td.cell:focus{background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1.5px var(--clay)}
@@ -199,11 +214,19 @@ td.cell.empty{color:rgba(31,44,68,.25)}
     </header>
 
     <div class="board">
-      <div class="board-scroll">
-        <table id="edit-table">
-          <thead><tr id="thead-row"></tr></thead>
-          <tbody id="tbody"></tbody>
-        </table>
+      <div class="schedule-wrap">
+        <div class="left-panel">
+          <table class="left-table">
+            <thead><tr id="left-thead-row"></tr></thead>
+            <tbody id="left-tbody"></tbody>
+          </table>
+        </div>
+        <div class="right-scroll">
+          <table id="edit-table">
+            <thead><tr id="thead-row"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
       </div>
       <div class="board-note">赤陶色为主播 · 点击「删除本列」可移除该日期列（所有直播间同步）</div>
     </div>
@@ -256,7 +279,8 @@ function buildRoomTable(room){
   var dates = displayDatesFor();
   var data = SCHEDULE[room] || {};
   var dateHeader = dates.map(function(d){ return '<th class="date-col">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
-  var rows = [];
+  var leftRows = [];
+  var rightRows = [];
   SLOT_ORDER_JS.forEach(function(slot){
     ROLES_JS.forEach(function(pair){
       var rk = pair[0], rn = pair[1];
@@ -276,10 +300,11 @@ function buildRoomTable(room){
       });
       var rowLabel = rk === "time" ? '<span class="slot-badge">' + slot + '</span>' : "";
       var trCls = rk === "time" ? ' class="row-slot"' : "";
-      rows.push('<tr' + trCls + '><td class="slot-col">' + rowLabel + '</td><td class="role-col">' + rn + '</td>' + cells + '</tr>');
+      leftRows.push('<tr' + trCls + '><td class="slot-col">' + rowLabel + '</td><td class="role-col">' + rn + '</td></tr>');
+      rightRows.push('<tr' + trCls + '>' + cells + '</tr>');
     });
   });
-  return '<div class="room-table" data-room="' + esc(room) + '"><div class="table-scroll"><table><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>' + dateHeader + '</tr></thead><tbody>' + rows.join("") + '</tbody></table></div></div>';
+  return '<div class="room-table" data-room="' + esc(room) + '"><div class="schedule-wrap"><div class="left-panel"><table class="left-table"><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th></tr></thead><tbody>' + leftRows.join("") + '</tbody></table></div><div class="right-scroll"><table class="right-table"><thead><tr>' + dateHeader + '</tr></thead><tbody>' + rightRows.join("") + '</tbody></table></div></div></div>';
 }
 
 function buildTabs(){
@@ -575,7 +600,11 @@ function addRoomEditor(){
 
 function renderTable(){
   const data = schedule[currentRoom] || {};
-  let headHtml = '<th class="col-slot">场次</th><th class="col-role">角色</th>';
+  // 左面板：场次/角色两列（独立表格，纵向随外层滚动）
+  let leftHead = '<th class="col-slot">场次</th><th class="col-role">角色</th>';
+  $("left-thead-row").innerHTML = leftHead;
+  // 右侧：日期表格
+  let headHtml = "";
   displayDates.forEach((d, i) => {
     const dt = parseDate(d);
     const wd = dt ? WEEKDAYS[dt.getDay()] : "";
@@ -583,7 +612,8 @@ function renderTable(){
   });
   $("thead-row").innerHTML = headHtml;
 
-  let rows = "";
+  let leftRows = "";
+  let rightRows = "";
   SLOT_ORDER.forEach(slot => {
     ROLES.forEach(([rk, rn]) => {
       let cells = "";
@@ -594,10 +624,12 @@ function renderTable(){
       });
       const rowLabel = rk === "time" ? `<span class="slot-badge">${slot}</span>` : "";
       const trCls = rk === "time" ? ' class="row-slot"' : "";
-      rows += `<tr${trCls}><td class="slot-col">${rowLabel}</td><td class="role-col">${rn}</td>${cells}</tr>`;
+      leftRows += `<tr${trCls}><td class="slot-col">${rowLabel}</td><td class="role-col">${rn}</td></tr>`;
+      rightRows += `<tr${trCls}>${cells}</tr>`;
     });
   });
-  $("tbody").innerHTML = rows;
+  $("left-tbody").innerHTML = leftRows;
+  $("tbody").innerHTML = rightRows;
 }
 
 function bindCells(){
@@ -735,34 +767,39 @@ body{
 }
 .chip b{color:var(--clay);font-weight:600}
 .chip:hover{transform:translateY(-1px)}
-/* 表格 */
-.table-scroll{overflow-x:auto;border-radius:16px}
-/* 冻结「场次」「角色」两列：贴合成固定列组，横向滚动整组不动 */
-.col-slot, .col-role, .slot-col, .role-col{
-  position:sticky;z-index:2;background:rgba(244,248,255,.98);
+/* 表格：左右双容器方案A —— 左面板固定承载场次/角色，右侧独立横向滚动日期表 */
+.room-table{overflow:hidden;border-radius:16px}
+.schedule-wrap{
+  display:flex;align-items:flex-start;gap:10px;
+  border-radius:16px;background:rgba(240,246,255,.45);
 }
-.col-slot, .slot-col{left:0;z-index:3;box-shadow:1px 0 0 rgba(15,30,61,.12)}
-.col-role{left:90px;z-index:5}
-.role-col{left:90px;z-index:3}
-/* 角色列右侧：1px 分隔线 + 阴影，固定列组与日期区视觉分界 */
-.col-role, .role-col{
-  box-shadow:6px 0 10px -4px rgba(15,30,61,.28), 1px 0 0 rgba(15,30,61,.22);
+/* 左面板：场次+角色固定，不随横向滚动移动，纵向与右侧一起滚动 */
+.left-panel{
+  flex:0 0 auto;width:194px;position:sticky;left:0;z-index:5;align-self:stretch;
+  background:linear-gradient(150deg, rgba(244,248,255,.98), rgba(236,243,255,.96));
+  border-radius:16px;border:1px solid rgba(255,255,255,.8);
+  box-shadow:8px 0 16px -8px rgba(15,30,61,.22), 1px 0 0 rgba(15,30,61,.12);
 }
-thead th.col-slot, thead th.col-role{background:rgba(244,248,255,.98);z-index:6}
-tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(240,246,255,.98)}
-/* 各直播间表格等长等宽：统一 max-width + fixed 布局 + 等宽日期列 */
-.room-table table{
-  width:100%;max-width:1280px;margin:0 auto;
+.left-panel .left-table{width:100%;border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed}
+/* 右侧：日期表横向滚动容器 */
+.right-scroll{
+  flex:1 1 auto;min-width:0;overflow-x:auto;
+  border-radius:16px;background:rgba(255,255,255,.32);
+}
+.right-scroll .right-table{
+  width:100%;margin:0 auto;
   border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px;table-layout:fixed;
 }
+/* 表头 */
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
+.left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
-.slot-col{width:84px;color:#334155;font-weight:500}
-.role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
+.slot-col{width:92px;color:#334155;font-weight:500}
+.role-col{width:96px;color:var(--text-muted);font-size:11.5px;font-weight:500}
 td{
   border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:9px 6px;text-align:center;
   color:#334155;vertical-align:middle;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff;
@@ -910,7 +947,8 @@ function buildRoomTableHtml(room){
     const wd = dt ? WEEKDAYS[dt.getDay()] : "";
     return `<th class="date-col">${fmtDate(d)}<span class="wd">${wd}</span></th>`;
   }).join("");
-  const rows = [];
+  const leftRows = [];
+  const rightRows = [];
   SLOT_ORDER.forEach(slot => {
     ROLES.forEach(([rk, rn]) => {
       let cells = "";
@@ -928,10 +966,11 @@ function buildRoomTableHtml(room){
       });
       const rowLabel = rk === "time" ? `<span class="slot-badge">${slot}</span>` : "";
       const trCls = rk === "time" ? ' class="row-slot"' : "";
-      rows.push(`<tr${trCls}><td class="slot-col">${rowLabel}</td><td class="role-col">${rn}</td>${cells}</tr>`);
+      leftRows.push(`<tr${trCls}><td class="slot-col">${rowLabel}</td><td class="role-col">${rn}</td></tr>`);
+      rightRows.push(`<tr${trCls}>${cells}</tr>`);
     });
   });
-  return `<div class="room-table" data-room="${escapeHtml(room)}"><div class="table-scroll"><table><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>${dateHeader}</tr></thead><tbody>${rows.join("")}</tbody></table></div></div>`;
+  return `<div class="room-table" data-room="${escapeHtml(room)}"><div class="schedule-wrap"><div class="left-panel"><table class="left-table"><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th></tr></thead><tbody>${leftRows.join("")}</tbody></table></div><div class="right-scroll"><table class="right-table"><thead><tr>${dateHeader}</tr></thead><tbody>${rightRows.join("")}</tbody></table></div></div></div>`;
 }
 
 function renderHtml(updatedAt){

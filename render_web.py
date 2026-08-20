@@ -122,34 +122,39 @@ body{
 }
 .chip b{color:var(--clay);font-weight:600}
 .chip:hover{transform:translateY(-1px)}
-/* 表格 */
-.table-scroll{overflow-x:auto;border-radius:16px}
-/* 冻结「场次」「角色」两列：贴合成固定列组，横向滚动整组不动 */
-.col-slot, .col-role, .slot-col, .role-col{
-  position:sticky;z-index:2;background:rgba(244,248,255,.98);
+/* 表格：左右双容器方案A —— 左面板固定承载场次/角色，右侧独立横向滚动日期表 */
+.room-table{overflow:hidden;border-radius:16px}
+.schedule-wrap{
+  display:flex;align-items:flex-start;gap:10px;
+  border-radius:16px;background:rgba(240,246,255,.45);
 }
-.col-slot, .slot-col{left:0;z-index:3;box-shadow:1px 0 0 rgba(15,30,61,.12)}
-.col-role{left:90px;z-index:5}
-.role-col{left:90px;z-index:3}
-/* 角色列右侧：1px 分隔线 + 阴影，固定列组与日期区视觉分界 */
-.col-role, .role-col{
-  box-shadow:6px 0 10px -4px rgba(15,30,61,.28), 1px 0 0 rgba(15,30,61,.22);
+/* 左面板：场次+角色固定，不随横向滚动移动，纵向与右侧一起滚动 */
+.left-panel{
+  flex:0 0 auto;width:194px;position:sticky;left:0;z-index:5;align-self:stretch;
+  background:linear-gradient(150deg, rgba(244,248,255,.98), rgba(236,243,255,.96));
+  border-radius:16px;border:1px solid rgba(255,255,255,.8);
+  box-shadow:8px 0 16px -8px rgba(15,30,61,.22), 1px 0 0 rgba(15,30,61,.12);
 }
-thead th.col-slot, thead th.col-role{background:rgba(244,248,255,.98);z-index:6}
-tbody tr:hover td.slot-col, tbody tr:hover td.role-col{background:rgba(240,246,255,.98)}
-/* 各直播间表格等长等宽：统一 max-width + fixed 布局 + 等宽日期列 */
-.room-table table{
-  width:100%;max-width:1280px;margin:0 auto;
+.left-panel .left-table{width:100%;border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed}
+/* 右侧：日期表横向滚动容器 */
+.right-scroll{
+  flex:1 1 auto;min-width:0;overflow-x:auto;
+  border-radius:16px;background:rgba(255,255,255,.32);
+}
+.right-scroll .right-table{
+  width:100%;margin:0 auto;
   border-collapse:separate;border-spacing:6px;min-width:1120px;font-size:12.5px;table-layout:fixed;
 }
+/* 表头 */
 thead th{
   background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);border-radius:12px;
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
 }
+.left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
-.slot-col{width:84px;color:#334155;font-weight:500}
-.role-col{width:80px;color:var(--text-muted);font-size:11.5px;font-weight:500}
+.slot-col{width:92px;color:#334155;font-weight:500}
+.role-col{width:96px;color:var(--text-muted);font-size:11.5px;font-weight:500}
 td{
   border:1px solid rgba(255,255,255,.7);border-radius:12px;padding:9px 6px;text-align:center;
   color:#334155;vertical-align:middle;background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 #fff;
@@ -260,7 +265,8 @@ function buildRoomTable(room){
   var dates = displayDatesFor();
   var data = SCHEDULE[room] || {};
   var dateHeader = dates.map(function(d){ return '<th class="date-col">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
-  var rows = [];
+  var leftRows = [];
+  var rightRows = [];
   SLOT_ORDER_JS.forEach(function(slot){
     ROLES_JS.forEach(function(pair){
       var rk = pair[0], rn = pair[1];
@@ -280,10 +286,11 @@ function buildRoomTable(room){
       });
       var rowLabel = rk === "time" ? '<span class="slot-badge">' + slot + '</span>' : "";
       var trCls = rk === "time" ? ' class="row-slot"' : "";
-      rows.push('<tr' + trCls + '><td class="slot-col">' + rowLabel + '</td><td class="role-col">' + rn + '</td>' + cells + '</tr>');
+      leftRows.push('<tr' + trCls + '><td class="slot-col">' + rowLabel + '</td><td class="role-col">' + rn + '</td></tr>');
+      rightRows.push('<tr' + trCls + '>' + cells + '</tr>');
     });
   });
-  return '<div class="room-table" data-room="' + esc(room) + '"><div class="table-scroll"><table><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>' + dateHeader + '</tr></thead><tbody>' + rows.join("") + '</tbody></table></div></div>';
+  return '<div class="room-table" data-room="' + esc(room) + '"><div class="schedule-wrap"><div class="left-panel"><table class="left-table"><thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th></tr></thead><tbody>' + leftRows.join("") + '</tbody></table></div><div class="right-scroll"><table class="right-table"><thead><tr>' + dateHeader + '</tr></thead><tbody>' + rightRows.join("") + '</tbody></table></div></div></div>';
 }
 
 function buildTabs(){
@@ -526,7 +533,8 @@ def build_room_table_html(room, data, dates):
         f'<th class="date-col">{d[5:].replace("-", "/")}<span class="wd">{WEEKDAYS[datetime.strptime(d, "%Y-%m-%d").weekday()]}</span></th>'
         for d in dates
     )
-    rows = []
+    left_rows = []
+    right_rows = []
     for slot in SLOT_ORDER:
         for role_key, role_name in ROLES:
             cells = []
@@ -546,14 +554,22 @@ def build_room_table_html(room, data, dates):
                     cells.append('<td class="cell empty">·</td>')
             row_label = f'<span class="slot-badge">{slot}</span>' if role_key == "time" else ""
             tr_cls = ' class="row-slot"' if role_key == "time" else ""
-            rows.append(
-                f'<tr{tr_cls}><td class="slot-col">{row_label}</td><td class="role-col">{role_name}</td>{"".join(cells)}</tr>'
+            left_rows.append(
+                f'<tr{tr_cls}><td class="slot-col">{row_label}</td><td class="role-col">{role_name}</td></tr>'
+            )
+            right_rows.append(
+                f'<tr{tr_cls}>{"".join(cells)}</tr>'
             )
     return (
         f'<div class="room-table" data-room="{room}">'
-        f'<div class="table-scroll"><table>'
-        f'<thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th>{date_header}</tr></thead>'
-        f'<tbody>{"".join(rows)}</tbody></table></div></div>'
+        f'<div class="schedule-wrap">'
+        f'<div class="left-panel"><table class="left-table">'
+        f'<thead><tr><th class="col-slot">场次</th><th class="col-role">角色</th></tr></thead>'
+        f'<tbody>{"".join(left_rows)}</tbody></table></div>'
+        f'<div class="right-scroll"><table class="right-table">'
+        f'<thead><tr>{date_header}</tr></thead>'
+        f'<tbody>{"".join(right_rows)}</tbody></table></div>'
+        f'</div></div>'
     )
 
 
