@@ -53,25 +53,6 @@ body{
     linear-gradient(160deg, #c9d3e2 0%, #aebbd0 40%, #d8dee8 100%);
   background-attachment:fixed;
 }
-/* 浮动胶囊导航 */
-.pill-nav{
-  position:fixed;left:50%;transform:translateX(-50%);top:20px;z-index:100;
-  display:flex;gap:4px;padding:7px;border-radius:999px;
-  background:linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.38));
-  backdrop-filter:blur(26px) saturate(1.6);-webkit-backdrop-filter:blur(26px) saturate(1.6);
-  border:1px solid rgba(255,255,255,.7);
-  box-shadow:0 20px 44px rgba(20,30,50,.22), inset 0 1px 0 rgba(255,255,255,.85), 0 1px 0 rgba(20,30,50,.05);
-  font-family:var(--font-sans);
-}
-.pill-nav a{
-  padding:8px 18px;border-radius:999px;color:#334155;font-size:13px;font-weight:500;
-  text-decoration:none;transition:all .25s ease;white-space:nowrap;
-}
-.pill-nav a:hover{background:rgba(255,255,255,.5)}
-.pill-nav a.active{
-  background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;font-weight:600;
-  box-shadow:0 6px 16px rgba(10,27,51,.35);
-}
 /* 内容区 */
 .content{position:relative;z-index:2;max-width:1320px;margin:0 auto;padding:120px 32px 64px}
 /* Hero 毛玻璃 3D */
@@ -230,11 +211,9 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:1024px){
   .cards-grid{grid-template-columns:1fr}
-  .content{padding:120px 18px 48px}
+  .content{padding:72px 18px 48px}
 }
 @media (max-width:640px){
-  .pill-nav{top:12px;max-width:calc(100vw - 24px);overflow-x:auto}
-  .pill-nav a{padding:7px 12px;font-size:12px}
   .hero-inner{padding:40px 24px}
   .glass-card{padding:18px 14px;border-radius:20px}
   .head-right{justify-content:flex-start;width:100%}
@@ -318,7 +297,10 @@ function buildStats(room){
     });
   });
   var arr = Object.keys(counter).map(function(n){ return '<span class="chip">主播 <b>' + esc(n) + '</b> × ' + counter[n] + ' 场</span>'; });
-  return arr.join("") || '<span class="chip">暂无数据</span>';
+  if (arr.length) return arr.join("");
+  return room === "问我我"
+    ? '<a class="chip chip-edit" href="editor.html" target="_blank">在线编辑</a>'
+    : '<span class="chip">暂无数据</span>';
 }
 
 function pad2(n){ return n < 10 ? "0" + n : String(n); }
@@ -396,7 +378,6 @@ function renderHtml(updatedAt){
   h += '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n';
   h += '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">\n';
   h += '<style>__CSS_TEMPLATE__</style>\n</head>\n<body>\n';
-  h += '<nav class="pill-nav">\n  <a class="active" href="#schedule">排班表</a>\n  <a href="#reminder">提醒</a>\n  <a href="#help">说明</a>\n  <a href="editor.html" target="_blank">在线编辑</a>\n</nav>\n';
   h += '<main class="content">\n';
   h += '  <section class="hero" id="top">\n    <div class="hero-inner">\n';
   h += '      <div class="hero-eyebrow">Schedule Reminder · ZEEKR Daily Live</div>\n';
@@ -570,7 +551,7 @@ def build_room_table_html(room, data, dates):
     )
 
 
-def build_stats_html(data):
+def build_stats_html(data, room):
     counter = Counter()
     for d, slots in data.items():
         if not isinstance(slots, dict):
@@ -583,6 +564,8 @@ def build_stats_html(data):
         return "".join(
             f'<span class="chip">主播 <b>{name}</b> × {cnt} 场</span>' for name, cnt in counter.most_common()
         )
+    if room == "问我我":
+        return '<a class="chip chip-edit" href="editor.html" target="_blank">在线编辑</a>'
     return '<span class="chip">暂无数据</span>'
 
 
@@ -657,7 +640,7 @@ def render_html(schedule, cfg):
     _stats_parts = []
     for _i, room in enumerate(rooms):
         _hide = " style=\"display:none\"" if _i != 0 else ""
-        _stats_parts.append(f'<div class="stats" data-stats-for="{room}"{_hide}>{build_stats_html(schedule.get(room, {}))}</div>')
+        _stats_parts.append(f'<div class="stats" data-stats-for="{room}"{_hide}>{build_stats_html(schedule.get(room, {}), room)}</div>')
     stats_all = "".join(_stats_parts)
     remind_list = build_remind_html(schedule, rooms)
 
@@ -686,13 +669,6 @@ def render_html(schedule, cfg):
 <style>{CSS_TEMPLATE}</style>
 </head>
 <body>
-
-<nav class="pill-nav">
-  <a class="active" href="#schedule">排班表</a>
-  <a href="#reminder">提醒</a>
-  <a href="#help">说明</a>
-  <a href="editor.html" target="_blank">在线编辑</a>
-</nav>
 
 <main class="content">
   <!-- Hero -->
