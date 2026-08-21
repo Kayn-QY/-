@@ -258,10 +258,11 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .head-right{flex-direction:column;align-items:stretch;justify-content:flex-start;width:100%;gap:10px}
   .week-nav{display:none}
   .sheet-bar{max-width:100%;flex-wrap:wrap}
-  .left-panel{width:123px}
-  .left-panel th.col-slot,.slot-col{width:55px!important}
-  .left-panel th.col-role,.role-col{width:58px!important}
-  .right-scroll .right-table{min-width:0;width:100%}
+  .left-panel{width:136px}
+  .left-panel th.col-slot,.slot-col{width:58px!important}
+  .left-panel th.col-role,.role-col{width:72px!important}
+  .date-col{width:72px!important}
+  .right-scroll .right-table{min-width:0;width:auto}
   .hidden-d{display:none!important}
 }
 """
