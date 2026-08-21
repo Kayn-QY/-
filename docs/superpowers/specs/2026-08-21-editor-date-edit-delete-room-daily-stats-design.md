@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 9d4a1ded685a81c80cf27c0c57895e9b_0d6523509d1a11f1b930525400e6dd8f
+    ReservedCode1: zaZMuE41+ojKF3/1adeK+85KM+0RUm+GzQOQ2EqgAGOfm/Mlm9kpOxkx8VPSWKVZjWGC3tNih8u7TJAZat2njEjr8t37njZ99AUzh/mHL5S8p7SuKceAaSN0OD7IgAEpRxcvr7w3aeYXnnCiF4vXUa/ncD0OyBFIsROyCzIRWuFKhz+SIkYtgfVLwPI=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 9d4a1ded685a81c80cf27c0c57895e9b_0d6523509d1a11f1b930525400e6dd8f
+    ReservedCode2: zaZMuE41+ojKF3/1adeK+85KM+0RUm+GzQOQ2EqgAGOfm/Mlm9kpOxkx8VPSWKVZjWGC3tNih8u7TJAZat2njEjr8t37njZ99AUzh/mHL5S8p7SuKceAaSN0OD7IgAEpRxcvr7w3aeYXnnCiF4vXUa/ncD0OyBFIsROyCzIRWuFKhz+SIkYtgfVLwPI=
+---
+
 # 2026-08-21 排班站三模块迭代设计
 
 ## 背景
@@ -53,3 +64,4 @@
 
 - 编辑页与展示页两处 JS 模板需保持一致，脚本替换后 grep 复核。
 - 删除直播间为破坏性操作，仅编辑器内 confirm 确认；不涉及文件系统删除。
+*（内容由AI生成，仅供参考）*
