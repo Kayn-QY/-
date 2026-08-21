@@ -1296,8 +1296,9 @@ function parseDateInput(s){
 const PASTE_STOPWORDS = new Set(["主播","直播","开播","时间","车型","场次","备注","开始","结束","上午","下午","晚上","早上","中午","房间","直播间","排班","星期","周"]);
 const ROOM_MARKERS = ["问我我","猎装","9X","8X","7X"];
 function extractTime(s){
-  const t = String(s == null ? "" : s);
-  let m = t.match(/(\d{1,2}):(\d{2})\s*[-~至到]\s*(\d{1,2}):(\d{2})/);
+  const t = String(s == null ? "" : s).replace(/；/g, ";").replace(/；/g, ";");
+  // 容错：结束时间误用分号（14:00-16;00）
+  let m = t.match(/(\d{1,2}):(\d{2})\s*[-~至到]\s*(\d{1,2})[;:](\d{2})/);
   if (m) return `${m[1]}:${m[2]}-${m[3]}:${m[4]}`;
   m = t.match(/(\d{1,2}):(\d{2})/);
   if (m) return `${m[1]}:${m[2]}`;
@@ -1307,38 +1308,40 @@ function extractCar(s){
   const t = String(s == null ? "" : s).trim().toLowerCase();
   return ROOM_MARKERS.find(rm => t.includes(rm.toLowerCase())) || "";
 }
-function extractName(s){
-  const re = /([\u4e00-\u9fa5·]{2,4})/g;
-  let m;
-  while ((m = re.exec(String(s))) !== null) {
-    const w = m[1];
-    if (PASTE_STOPWORDS.has(w)) continue;
-    if (/\d/.test(w)) continue;
-    return w;
+function dedupeRepeat(s){
+  // 主播格重复人名挤格（如「霍晶晶霍晶晶霍晶晶」）还原为单个「霍晶晶」
+  const str = String(s == null ? "" : s);
+  for (let len = 2; len <= 4; len++) {
+    const sub = str.slice(0, len);
+    if (!sub) continue;
+    if (str.length > sub.length && str.length % sub.length === 0 && str === sub.repeat(str.length / sub.length)) return sub;
   }
-  return "";
+  return str;
+}
+function extractAllNames(s){
+  // 主播格可能多人混写，用 | / 、 或空格分隔；返回全部去重有效名（多主播场景）
+  const parts = String(s == null ? "" : s).split(/[|｜/、,，\s]+/).map(x => x.trim()).filter(Boolean);
+  const out = [];
+  const seen = new Set();
+  for (const p of parts) {
+    const cleaned = dedupeRepeat(p);
+    const re = /([\u4e00-\u9fa5·]{2,4})/g;
+    let m;
+    while ((m = re.exec(cleaned)) !== null) {
+      const w = m[1];
+      if (PASTE_STOPWORDS.has(w)) continue;
+      if (/\d/.test(w)) continue;
+      if (seen.has(w)) continue;
+      seen.add(w);
+      out.push(w);
+    }
+  }
+  return out;
 }
 function splitRowCells(line){
   if (line.includes("\t")) return line.split("\t").map(c => c.trim());
-  return line.split(/[,，、]|\s{2,}/).map(c => c.trim()).filter(c => c !== "");
-}
-function rowKind(row){
-  const cells = splitRowCells(row);
-  if (!cells.length) return "empty";
-  let timeN = 0, carN = 0, nameN = 0;
-  cells.forEach(c => {
-    if (extractTime(c)) timeN++;
-    if (extractCar(c)) carN++;
-    if (extractName(c)) nameN++;
-  });
-  const n = cells.length;
-  if (timeN === n) return "time";
-  if (carN === n) return "car";
-  if (nameN === n) return "anchor";
-  if (timeN * 2 >= n && timeN >= carN && timeN >= nameN) return "time";
-  if (carN * 2 >= n && carN >= timeN && carN >= nameN) return "car";
-  if (nameN * 2 >= n && nameN >= timeN && nameN >= carN) return "anchor";
-  return "unknown";
+  // 单空格 / 多空格 / 逗号 / 顿号 均作为列分隔（表格复制常见）
+  return line.split(/\s+/).map(c => c.trim()).filter(c => c !== "");
 }
 function slotByStart(timeStr){
   const m = String(timeStr || "").match(/(\d{1,2}):\d{2}/);
@@ -1352,32 +1355,77 @@ function slotByStart(timeStr){
   return SLOT_ORDER[5];                 // 20:00 第6场
 }
 function parseTableText(text){
+  // 以「时间行」作为组分隔锚点：时间行出现即开启新组，其后的非时间行按出现顺序
+  // 依次作为 车型行 / 主播行1 / 主播行2 ... 归属该组。
+  // 首个时间行之前的行被视为一组，共享第一个时间行的时间。
+  // 首行若不含车型标记（7X/8X/9X/猎装等）且像人名，则降级为主播行（车型留空用默认）。
   const lines = String(text || "").split("\n").map(l => l.trim()).filter(l => l);
-  let timeRow = "", carRow = "", anchorRow = "";
-  lines.forEach(line => {
-    const kind = rowKind(line);
-    if (kind === "time" && !timeRow) timeRow = line;
-    else if (kind === "car" && !carRow) carRow = line;
-    else if (kind === "anchor" && !anchorRow) anchorRow = line;
-  });
-  if (!timeRow) return { ok: false, reason: "未识别到时间行（需包含如 20:00-22:00 的时间区间）" };
-  const timeCells = splitRowCells(timeRow);
-  const carCells = carRow ? splitRowCells(carRow) : [];
-  const anchorCells = anchorRow ? splitRowCells(anchorRow) : [];
-  const colCount = Math.max(timeCells.length, carCells.length, anchorCells.length);
   const columns = [];
   let ignoredCount = 0;
-  for (let i = 0; i < colCount; i++) {
-    const time = extractTime(timeCells[i]);
-    if (!time) continue;
-    const date = i < displayDates.length ? displayDates[i] : null;
-    if (!date) { ignoredCount++; continue; }
-    const slot = slotByStart(time);
-    const car = extractCar(carCells[i]) || currentRoom;
-    const anchor = extractName(anchorCells[i]);
-    columns.push({ date, time, slot, car, anchor });
-  }
-  if (!columns.length) return { ok: false, reason: "时间行未匹配到当前表中的日期列，已全部忽略" };
+  const groups = [];
+  let cur = null;
+  let roleIdx = 0;
+  let preRows = [];
+  let firstTimeEncountered = false;
+  const isCarLike = (line) => {
+    // 行内任一单元格含车型标记即视为车型行
+    return splitRowCells(line).some(c => extractCar(c) !== "");
+  };
+  const assignRows = (g, rows) => {
+    // 首行：若像车型则作车型，否则作主播
+    if (rows.length === 0) return;
+    if (isCarLike(rows[0])) g.car = rows[0];
+    else g.anchors.push(rows[0]);
+    for (let i = 1; i < rows.length; i++) g.anchors.push(rows[i]);
+  };
+  lines.forEach(line => {
+    if (extractTime(line)) {
+      if (!firstTimeEncountered) {
+        firstTimeEncountered = true;
+        if (preRows.length > 0) {
+          const g = { time: line, car: null, anchors: [] };
+          assignRows(g, preRows);
+          groups.push(g);
+        }
+      }
+      cur = { time: line, car: null, anchors: [] };
+      groups.push(cur);
+      roleIdx = 0;
+      return;
+    }
+    if (!firstTimeEncountered) {
+      preRows.push(line);
+      return;
+    }
+    if (roleIdx === 0) {
+      if (isCarLike(line)) cur.car = line;
+      else cur.anchors.push(line);
+    } else {
+      cur.anchors.push(line);
+    }
+    roleIdx++;
+  });
+  groups.forEach(g => {
+    const timeCells = splitRowCells(g.time);
+    const carCells = g.car ? splitRowCells(g.car) : [];
+    const colCount = Math.max(timeCells.length, carCells.length);
+    for (let i = 0; i < colCount; i++) {
+      const time = extractTime(timeCells[i]);
+      if (!time) continue;
+      const date = i < displayDates.length ? displayDates[i] : null;
+      if (!date) { ignoredCount++; continue; }
+      const slot = slotByStart(time);
+      let car = (i < carCells.length ? extractCar(carCells[i]) : "") || currentRoom;
+      const allNames = [];
+      const seen = new Set();
+      g.anchors.forEach(ar => {
+        extractAllNames(ar).forEach(nm => { if (!seen.has(nm)) { seen.add(nm); allNames.push(nm); } });
+      });
+      const anchor = allNames[0] || "";
+      columns.push({ date, time, slot, car, anchor, anchorAll: allNames });
+    }
+  });
+  if (!columns.length) return { ok: false, reason: "未识别到任何时间行（需包含如 14:00-16:00 的时间区间）" };
   return { ok: true, columns, ignoredCount };
 }
 function openPasteModal(){
@@ -1417,7 +1465,8 @@ function openPasteModal(){
       html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.time)}</td>`;
       html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.slot)}</td>`;
       html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.car)}</td>`;
-      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;${c.anchor ? "" : "color:#c0392b;"}">${escapeHtml(c.anchor || "未识别")}</td></tr>`;
+      const anchorShow = (c.anchorAll && c.anchorAll.length) ? c.anchorAll.join(" / ") : (c.anchor || "未识别");
+      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;${c.anchor ? "" : "color:#c0392b;"}">${escapeHtml(anchorShow)}</td></tr>`;
     });
     html += `</tbody></table>`;
     html += `<div class="paste-actions"><button class="btn-primary2" id="paste-confirm-btn">确认写入并保存</button></div>`;
