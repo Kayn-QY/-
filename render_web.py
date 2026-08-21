@@ -346,18 +346,19 @@ function buildTabs(){
 function buildStats(room){
   var data = SCHEDULE[room] || {};
   var counter = {};
-  Object.keys(data).forEach(function(d){
-    if (!data[d] || typeof data[d] !== "object") return;
-    Object.keys(data[d]).forEach(function(s){
-      var n = (data[d][s].anchor || "").trim();
+  var today = todayISO();
+  var day = data[today];
+  if (day && typeof day === "object") {
+    Object.keys(day).forEach(function(s){
+      var n = (day[s].anchor || "").trim();
       if (n) counter[n] = (counter[n] || 0) + 1;
     });
-  });
+  }
   var arr = Object.keys(counter).map(function(n){ return '<span class="chip">主播 <b>' + esc(n) + '</b> × ' + counter[n] + ' 场</span>'; });
   if (arr.length) return arr.join("");
   return room === "问我我"
     ? '<a class="chip chip-edit" href="editor.html" target="_blank">在线编辑</a>'
-    : '<span class="chip">暂无数据</span>';
+    : '<span class="chip">今日暂无</span>';
 }
 
 function pad2(n){ return n < 10 ? "0" + n : String(n); }
@@ -620,10 +621,10 @@ def build_room_table_html(room, data, dates, active=False):
 
 def build_stats_html(data, room):
     counter = Counter()
-    for d, slots in data.items():
-        if not isinstance(slots, dict):
-            continue
-        for slot, info in slots.items():
+    today = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d")
+    day = data.get(today)
+    if isinstance(day, dict):
+        for slot, info in day.items():
             name = (info.get("anchor", "") or "").strip()
             if name:
                 counter[name] += 1
@@ -633,7 +634,7 @@ def build_stats_html(data, room):
         )
     if room == "问我我":
         return '<a class="chip chip-edit" href="editor.html" target="_blank">在线编辑</a>'
-    return '<span class="chip">暂无数据</span>'
+    return '<span class="chip">今日暂无</span>'
 
 
 def build_remind_html(schedule, rooms):

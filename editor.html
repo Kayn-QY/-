@@ -47,10 +47,17 @@ body{
 .room-switch{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:16px}
 .room-switch-label{font-size:12px;color:var(--text-muted);margin-right:4px}
 .room-tab-editor{
-  border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:#334155;
+  position:relative;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.5);color:#334155;
   border-radius:12px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;
   box-shadow:inset 0 1px 0 #fff;transition:all .2s;font-family:var(--font-sans);white-space:nowrap;
 }
+.room-tab-del{
+  display:none;position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;
+  background:#c0392b;color:#fff;font-size:13px;line-height:18px;text-align:center;cursor:pointer;
+  font-style:normal;user-select:none;box-shadow:0 2px 6px rgba(192,57,43,.4);
+}
+.room-tab-editor:hover .room-tab-del{display:block}
+.room-tab-del:hover{background:#a93226}
 .room-tab-editor:hover{background:rgba(255,255,255,.75)}
 .room-tab-editor.active{
   background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent;
@@ -160,6 +167,29 @@ td.cell.empty{color:rgba(31,44,68,.25)}
 .paste-preview .row.err{color:#c0392b}
 .paste-preview .row.err .tm,.paste-preview .row.err .nm{color:#c0392b}
 .paste-preview .no-date{color:#c0392b;font-size:12px}
+/* OCR 粘贴截图 */
+.ocr-dropzone{
+  margin-top:6px;border:1.5px dashed rgba(144,88,49,.5);border-radius:14px;background:rgba(255,255,255,.5);
+  padding:26px 14px;text-align:center;font-size:13px;color:var(--text-muted);cursor:pointer;transition:all .2s;user-select:none;
+}
+.ocr-dropzone:hover,.ocr-dropzone.drag{border-color:var(--clay);background:rgba(144,88,49,.1)}
+.ocr-progress{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:12.5px;color:var(--text-muted)}
+.ocr-progress .track{flex:1;height:8px;border-radius:999px;background:rgba(15,30,61,.1);overflow:hidden}
+.ocr-progress .bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#905831,#c07a4a);transition:width .25s}
+.ocr-progress span{white-space:nowrap;min-width:130px;text-align:right;font-variant-numeric:tabular-nums}
+.paste-preview table{width:100%;border-collapse:collapse;font-size:12.5px}
+.paste-preview th{padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;background:rgba(15,30,61,.06);color:#0f1e3d}
+.paste-preview td{padding:4px 5px;border:1px solid rgba(15,30,61,.12);text-align:center;vertical-align:middle}
+.paste-preview td.editable{background:rgba(255,255,255,.55)}
+.paste-preview input.cell-edit{
+  width:100%;min-width:64px;border:1px solid transparent;border-radius:8px;padding:4px 6px;
+  font-size:12.5px;font-family:var(--font-sans);text-align:center;background:transparent;color:#0f1e3d;outline:none;
+}
+.paste-preview input.cell-edit:hover{border-color:rgba(144,88,49,.35)}
+.paste-preview input.cell-edit:focus{border-color:var(--clay);background:#fff;box-shadow:0 0 0 2px rgba(144,88,49,.15)}
+.paste-preview input.cell-edit.invalid{border-color:#c0392b;background:rgba(192,57,43,.06);box-shadow:0 0 0 2px rgba(192,57,43,.12)}
+.paste-preview td.tm-cell{color:#0f1e3d;font-weight:600}
+.paste-preview td.missing{color:#c0392b;font-weight:600}
 .foot{position:relative;z-index:2;text-align:center;color:rgba(31,44,68,.5);font-size:12px;letter-spacing:.10em;padding:28px 0 4px}
 .btn-primary2{
   display:inline-flex;align-items:center;background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;
@@ -219,6 +249,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
         <button class="btn-outline" id="btn-next-week">下周</button>
         <button class="btn-outline" id="btn-clear-date">清除选定日期</button>
         <button class="btn-danger" id="btn-clear-all">清除全部</button>
+        <button class="btn-outline" id="btn-paste-ocr">粘贴截图</button>
         <button class="btn-outline" id="btn-paste-parse">复制粘贴</button>
         <button class="btn-primary2" id="btn-save">保存并发布</button>
       </div>
@@ -374,18 +405,19 @@ function buildTabs(){
 function buildStats(room){
   var data = SCHEDULE[room] || {};
   var counter = {};
-  Object.keys(data).forEach(function(d){
-    if (!data[d] || typeof data[d] !== "object") return;
-    Object.keys(data[d]).forEach(function(s){
-      var n = (data[d][s].anchor || "").trim();
+  var today = todayISO();
+  var day = data[today];
+  if (day && typeof day === "object") {
+    Object.keys(day).forEach(function(s){
+      var n = (day[s].anchor || "").trim();
       if (n) counter[n] = (counter[n] || 0) + 1;
     });
-  });
+  }
   var arr = Object.keys(counter).map(function(n){ return '<span class="chip">主播 <b>' + esc(n) + '</b> × ' + counter[n] + ' 场</span>'; });
   if (arr.length) return arr.join("");
   return room === "问我我"
     ? '<a class="chip chip-edit" href="editor.html" target="_blank">在线编辑</a>'
-    : '<span class="chip">暂无数据</span>';
+    : '<span class="chip">今日暂无</span>';
 }
 
 function clockMin(t){
@@ -641,7 +673,10 @@ function renderRoomSwitch(){
   const wrap = $("room-switch");
   let html = '<span class="room-switch-label">直播间</span>';
   rooms.forEach(r => {
-    html += `<button class="room-tab-editor${r === currentRoom ? " active" : ""}" data-room="${escapeHtml(r)}">${escapeHtml(r)}</button>`;
+    const delBtn = rooms.length > 1
+      ? `<span class="room-tab-del" data-del-room="${escapeHtml(r)}" title="删除直播间">×</span>`
+      : "";
+    html += `<button class="room-tab-editor${r === currentRoom ? " active" : ""}" data-room="${escapeHtml(r)}">${escapeHtml(r)}${delBtn}</button>`;
   });
   html += '<button class="room-tab-add" id="btn-room-add" title="新增直播间">＋</button>';
   wrap.innerHTML = html;
@@ -668,6 +703,20 @@ function addRoomEditor(){
   renderTable();
   bindCells();
   setStatus("已新增直播间「" + room + "」，点击「保存并发布」后线上生效", false);
+}
+
+function deleteRoomEditor(room){
+  if (rooms.length <= 1) { setStatus("至少保留一个直播间，无法删除", true); return; }
+  if (!confirm(`确认删除直播间「${room}」？将同时删除其全部排班数据并发布到线上。`)) return;
+  rooms = rooms.filter(r => r !== room);
+  delete schedule[room];
+  if (currentRoom === room) currentRoom = rooms[0];
+  cfg.rooms = rooms.slice();
+  renderRoomSwitch();
+  renderTable();
+  bindCells();
+  setStatus("已删除直播间「" + room + "」，正在保存并发布…", false);
+  save();
 }
 
 function renderTable(){
@@ -993,18 +1042,19 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
 function buildStatsHtml(room){
   const data = schedule[room] || {};
   const counter = {};
-  Object.keys(data).forEach(d => {
-    if (!data[d] || typeof data[d] !== "object") return;
-    Object.keys(data[d]).forEach(s => {
-      const n = (data[d][s].anchor || "").trim();
+  const today = todayISO();
+  const day = data[today];
+  if (day && typeof day === "object") {
+    Object.keys(day).forEach(s => {
+      const n = (day[s].anchor || "").trim();
       if (n) counter[n] = (counter[n] || 0) + 1;
     });
-  });
+  }
   const arr = Object.keys(counter).map(n => `<span class="chip">主播 <b>${escapeHtml(n)}</b> × ${counter[n]} 场</span>`);
   if (arr.length) return arr.join("");
   return room === "问我我"
     ? '<a class="chip chip-edit" href="editor.html" target="_blank">在线编辑</a>'
-    : '<span class="chip">暂无数据</span>';
+    : '<span class="chip">今日暂无</span>';
 }
 
 function bjNow(){
@@ -1292,6 +1342,30 @@ function parseDateInput(s){
   if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
   return null;
 }
+// 预览日期输入框：兼容 08/17、08-17、2026-08-17、8月17日、8.17、0817
+function parseFlexDate(s){
+  s = String(s == null ? "" : s).trim();
+  if (!s) return null;
+  let m, y, mo, d;
+  m = s.match(/^(\d{4})[-/.]?(\d{1,2})[-/.]?(\d{1,2})$/);
+  if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else {
+    m = s.match(/^(\d{1,2})[-/.]?(\d{1,2})$/);
+    if (m) { y = new Date().getFullYear(); mo = +m[1]; d = +m[2]; }
+    else {
+      m = s.match(/^(\d{1,2})月(\d{1,2})[日号]?$/);
+      if (m) { y = new Date().getFullYear(); mo = +m[1]; d = +m[2]; }
+      else {
+        m = s.match(/^(\d{2})(\d{2})$/);
+        if (m && +m[1] >= 1 && +m[1] <= 12) { y = new Date().getFullYear(); mo = +m[1]; d = +m[2]; }
+      }
+    }
+  }
+  if (!m) return null;
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() + 1 !== mo || dt.getDate() !== d) return null;
+  return dt;
+}
 // ---------- 复制粘贴自动解析（多行表格，按列匹配当前周） ----------
 const PASTE_STOPWORDS = new Set(["主播","直播","开播","时间","车型","场次","备注","开始","结束","上午","下午","晚上","早上","中午","房间","直播间","排班","星期","周"]);
 const ROOM_MARKERS = ["问我我","猎装","9X","8X","7X"];
@@ -1305,8 +1379,13 @@ function extractTime(s){
   return "";
 }
 function extractCar(s){
-  const t = String(s == null ? "" : s).trim().toLowerCase();
-  return ROOM_MARKERS.find(rm => t.includes(rm.toLowerCase())) || "";
+  const t = String(s == null ? "" : s).trim();
+  const low = t.toLowerCase();
+  const rm = ROOM_MARKERS.find(m => low.includes(m.toLowerCase()));
+  if (rm) return rm;
+  // 截图/OCR 车型常见形态：数字+字母组合（如 焕新007GT/001、001GT），整格作为车型
+  if (/[a-z]/i.test(t) && /\d/.test(t) && t.length <= 24) return t;
+  return "";
 }
 function dedupeRepeat(s){
   // 主播格重复人名挤格（如「霍晶晶霍晶晶霍晶晶」）还原为单个「霍晶晶」
@@ -1359,7 +1438,10 @@ function parseTableText(text){
   // 依次作为 车型行 / 主播行1 / 主播行2 ... 归属该组。
   // 首个时间行之前的行被视为一组，共享第一个时间行的时间。
   // 首行若不含车型标记（7X/8X/9X/猎装等）且像人名，则降级为主播行（车型留空用默认）。
-  const lines = String(text || "").split("\n").map(l => l.trim()).filter(l => l);
+  // 注意：不能对整个行 trim——行首的 \t 代表「周一列空」的空列占位（Excel/表格复制常见），
+  // 删掉会丢失列位置，导致只有中间列有值的行被整体左移（如周二/周三被解析成周一/周二）。
+  // 因此只去掉行尾空白（\r 及尾部空格），保留行首制表符空位；纯空白行仍过滤。
+  const lines = String(text || "").split(/\r?\n/).map(l => l.replace(/\s+$/, "")).filter(l => l.trim() !== "");
   const columns = [];
   let ignoredCount = 0;
   const groups = [];
@@ -1452,41 +1534,67 @@ function openPasteModal(){
       box.innerHTML = `<div class="no-date">${escapeHtml(result.reason)}，请检查粘贴内容。</div>`;
       return;
     }
-    const ignored = result.ignoredCount;
-    let html = `<div style="font-size:12px;color:#0f1e3d;margin-bottom:8px;">共解析到 ${result.columns.length + ignored} 列：写入 ${result.columns.length} 列${ignored ? `，忽略不在表中的 ${ignored} 列` : ""}；直播间默认「${escapeHtml(currentRoom)}」。</div>`;
-    html += `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:rgba(15,30,61,.06)">`;
-    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">日期</th>`;
-    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">时间</th>`;
-    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">场次</th>`;
-    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">车型</th>`;
-    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">主播</th></tr></thead><tbody>`;
-    result.columns.forEach(c => {
-      html += `<tr><td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(fmtDate(c.date))}</td>`;
-      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.time)}</td>`;
-      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.slot)}</td>`;
-      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.car)}</td>`;
-      const anchorShow = (c.anchorAll && c.anchorAll.length) ? c.anchorAll.join(" / ") : (c.anchor || "未识别");
-      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;${c.anchor ? "" : "color:#c0392b;"}">${escapeHtml(anchorShow)}</td></tr>`;
+    renderEditablePreview(box, result);
+  });
+}
+function renderEditablePreview(box, result){
+  const ignored = result.ignoredCount;
+  let html = `<div style="font-size:12px;color:#0f1e3d;margin-bottom:8px;">共解析到 ${result.columns.length + ignored} 列：写入 ${result.columns.length} 列${ignored ? `，忽略不在表中的 ${ignored} 列` : ""}；直播间默认「${escapeHtml(currentRoom)}」。下方时间 / 车型 / 主播可直接编辑修正后确认。</div>`;
+  html += `<table><thead><tr><th>日期</th><th>时间</th><th>场次</th><th>车型</th><th>主播</th></tr></thead><tbody>`;
+  result.columns.forEach((c, ci) => {
+    html += `<tr><td class="editable"><input class="cell-edit date-cell" data-ci="${ci}" data-field="date" value="${escapeHtml(fmtDate(c.date))}"></td>`;
+    html += `<td class="editable"><input class="cell-edit" data-ci="${ci}" data-field="time" value="${escapeHtml(c.time)}"></td>`;
+    html += `<td class="tm-cell">${escapeHtml(c.slot)}</td>`;
+    html += `<td class="editable"><input class="cell-edit" data-ci="${ci}" data-field="car" value="${escapeHtml(c.car)}"></td>`;
+    html += `<td class="editable${c.anchor ? "" : " missing"}"><input class="cell-edit" data-ci="${ci}" data-field="anchor" value="${escapeHtml(c.anchor || "")}"${c.anchor ? "" : ` placeholder="未识别，请填写"`}></td></tr>`;
+  });
+  html += `</tbody></table>`;
+  html += `<div class="paste-actions"><button class="btn-primary2" id="paste-confirm-btn">确认写入并保存</button></div>`;
+  box.innerHTML = html;
+  box.querySelectorAll("input.cell-edit[data-ci]").forEach(inp => {
+    inp.addEventListener("input", () => {
+      const col = result.columns[+inp.dataset.ci];
+      if (!col) return;
+      if (inp.dataset.field === "date") {
+        const dt = parseFlexDate(inp.value);
+        inp.classList.toggle("invalid", !!inp.value.trim() && !dt);
+        col.date = dt ? toISO(dt) : inp.value.trim();
+      } else {
+        col[inp.dataset.field] = inp.value.trim();
+      }
     });
-    html += `</tbody></table>`;
-    html += `<div class="paste-actions"><button class="btn-primary2" id="paste-confirm-btn">确认写入并保存</button></div>`;
-    box.innerHTML = html;
-    box.querySelector("#paste-confirm-btn").addEventListener("click", () => {
-      overlay.remove();
-      confirmPaste(result);
-    });
+  });
+  box.querySelector("#paste-confirm-btn").addEventListener("click", () => {
+    const ov = box.closest(".paste-overlay");
+    if (ov) ov.remove();
+    confirmPaste(result);
   });
 }
 async function confirmPaste(result){
   if (!result || !result.columns || !result.columns.length) { setStatus("没有可写入的数据，已取消", true); return; }
+  // 校验全部日期有效
+  const bad = result.columns.filter(c => !parseFlexDate(c.date));
+  if (bad.length) {
+    setStatus(`有 ${bad.length} 行日期无效（如「${bad[0].date}」），已取消写入。请修改为 08/17、2026-08-17 等格式。`, true);
+    return;
+  }
   if (!schedule[currentRoom]) schedule[currentRoom] = {};
+  // 已有同名场次：弹确认覆盖
+  const conflicts = result.columns.filter(col => {
+    const ex = schedule[currentRoom][col.date] && schedule[currentRoom][col.date][col.slot];
+    return ex && (ex.time || ex.car || ex.anchor);
+  });
+  if (conflicts.length) {
+    const lines = conflicts.slice(0, 5).map(c => `${c.date} ${c.slot}（${c.car || "-"} / ${c.anchor || "-"}）`).join("\n");
+    const ok = confirm(`以下 ${conflicts.length} 个场次已有排班数据，确认覆盖？\n${lines}${conflicts.length > 5 ? `\n…等 ${conflicts.length} 条` : ""}`);
+    if (!ok) { setStatus("已取消写入", false); return; }
+  }
   result.columns.forEach(col => {
     if (!schedule[currentRoom][col.date]) schedule[currentRoom][col.date] = {};
-    const prev = schedule[currentRoom][col.date][col.slot] || {};
     schedule[currentRoom][col.date][col.slot] = {
-      time: prev.time || col.time,
-      car: prev.car || col.car,
-      anchor: prev.anchor || col.anchor
+      time: col.time,
+      car: col.car,
+      anchor: col.anchor
     };
   });
   renderTable(); bindCells();
@@ -1496,6 +1604,142 @@ async function confirmPaste(result){
   await save();
 }
 
+// ---------- 粘贴截图 OCR 识别 ----------
+const OCR_CDN_CANDIDATES = [
+  {
+    base: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1",
+    core: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd.wasm.js"
+  },
+  {
+    base: "https://registry.npmmirror.com/tesseract.js/5.1.1/files",
+    core: "https://registry.npmmirror.com/tesseract.js-core/5.1.1/files/tesseract-core-simd.wasm.js"
+  }
+];
+let ocrCdn = null;
+let ocrOverlay = null;
+
+function loadScript(src){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("加载失败: " + src));
+    document.head.appendChild(s);
+  });
+}
+async function ensureTesseract(){
+  if (window.Tesseract) return;
+  for (const c of OCR_CDN_CANDIDATES) {
+    try {
+      await loadScript(c.base + "/dist/tesseract.min.js");
+      ocrCdn = c;
+      return;
+    } catch (e) { /* 尝试下一个源 */ }
+  }
+  throw new Error("OCR 引擎加载失败，请检查网络后重试");
+}
+async function ocrImage(file, onProgress){
+  await ensureTesseract();
+  const worker = await Tesseract.createWorker("chi_sim", 1, {
+    workerPath: ocrCdn.base + "/dist/worker.min.js",
+    corePath: ocrCdn.core,
+    langPath: "./tessdata",
+    logger: m => { if (m.status === "recognizing text" && onProgress) onProgress(m.progress); }
+  });
+  try {
+    const { data } = await worker.recognize(file);
+    return data.text;
+  } finally {
+    await worker.terminate();
+  }
+}
+function openOcrModal(){
+  if (ocrOverlay && document.body.contains(ocrOverlay)) { ocrOverlay.remove(); }
+  const overlay = document.createElement("div");
+  overlay.className = "paste-overlay";
+  overlay.id = "ocr-overlay";
+  overlay.innerHTML = `
+    <div class="paste-box" style="width:min(820px,94vw)">
+      <h3>粘贴截图识别排班</h3>
+      <p class="paste-desc">截图排班表（5 列：周一至周五；每 5 行一场：时间 / 车型 / 主播），在本页面按 Ctrl+V / Cmd+V 直接粘贴图片即可自动识别；识别结果可编辑修正后确认写入。首次使用需加载识别引擎（约 20MB），之后有缓存会快很多。</p>
+      <div class="ocr-dropzone" id="ocr-dropzone">请截图后按 Ctrl+V / Cmd+V 粘贴图片，或点击此处选择图片文件</div>
+      <input type="file" id="ocr-file-input" accept="image/*" style="display:none">
+      <div class="ocr-progress" id="ocr-progress" style="display:none">
+        <div class="track"><div class="bar" id="ocr-progress-bar"></div></div>
+        <span id="ocr-progress-text">准备中…</span>
+      </div>
+      <div class="paste-preview" id="ocr-preview"></div>
+      <div class="paste-actions">
+        <button class="btn-outline" id="ocr-cancel-btn">取消</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  ocrOverlay = overlay;
+  const dropzone = overlay.querySelector("#ocr-dropzone");
+  const fileInput = overlay.querySelector("#ocr-file-input");
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files && fileInput.files[0]) runOcrOnImage(fileInput.files[0], overlay);
+    fileInput.value = "";
+  });
+  overlay.querySelector("#ocr-cancel-btn").addEventListener("click", () => overlay.remove());
+  overlay.querySelector(".paste-box").addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag"); });
+  overlay.querySelector(".paste-box").addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+  overlay.querySelector(".paste-box").addEventListener("drop", e => {
+    e.preventDefault(); dropzone.classList.remove("drag");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f && f.type && f.type.startsWith("image/")) runOcrOnImage(f, overlay);
+  });
+}
+async function runOcrOnImage(file, overlay){
+  const dropzone = overlay.querySelector("#ocr-dropzone");
+  const progress = overlay.querySelector("#ocr-progress");
+  const bar = overlay.querySelector("#ocr-progress-bar");
+  const ptext = overlay.querySelector("#ocr-progress-text");
+  const preview = overlay.querySelector("#ocr-preview");
+  dropzone.style.display = "none";
+  preview.innerHTML = "";
+  progress.style.display = "flex";
+  bar.style.width = "0%";
+  ptext.textContent = "正在加载识别引擎…";
+  try {
+    const ocrText = await ocrImage(file, p => {
+      ptext.textContent = "正在识别… " + Math.round(p * 100) + "%";
+      bar.style.width = Math.round(p * 100) + "%";
+    });
+    progress.style.display = "none";
+    const result = parseTableText(ocrText);
+    if (!result.ok) {
+      preview.innerHTML = `<div class="no-date">${escapeHtml(result.reason)}。请确认截图清晰、包含整张表格，或改用手动粘贴。</div>`;
+      dropzone.style.display = "block";
+      return;
+    }
+    renderEditablePreview(preview, result);
+  } catch (err) {
+    progress.style.display = "none";
+    dropzone.style.display = "block";
+    preview.innerHTML = `<div class="no-date">OCR 识别失败：${escapeHtml(err.message || "未知错误")}。请检查网络后重试，或改用手动粘贴。</div>`;
+  }
+}
+document.addEventListener("paste", e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  let imgItem = null;
+  for (const it of items) {
+    if (it.type && it.type.startsWith("image/")) { imgItem = it; break; }
+  }
+  if (!imgItem) return;
+  e.preventDefault();
+  const file = imgItem.getAsFile();
+  if (!file) return;
+  if (ocrOverlay && document.body.contains(ocrOverlay)) {
+    runOcrOnImage(file, ocrOverlay);
+  } else {
+    openOcrModal();
+    runOcrOnImage(file, ocrOverlay);
+  }
+});
+
 function init(){
   $("btn-prev-week").addEventListener("click", () => shiftWeek(-1));
   $("btn-next-week").addEventListener("click", () => shiftWeek(1));
@@ -1503,6 +1747,7 @@ function init(){
   $("btn-clear-date").addEventListener("click", clearSelectedDate);
   $("btn-clear-all").addEventListener("click", clearAll);
   $("btn-paste-parse").addEventListener("click", openPasteModal);
+  $("btn-paste-ocr").addEventListener("click", openOcrModal);
   $("btn-token-save").addEventListener("click", () => {
     const t = $("token-input").value.trim();
     if (!t) { setStatus("Token 不能为空", true); return; }
@@ -1524,6 +1769,8 @@ function init(){
       renderTable(); bindCells();
       return;
     }
+    const del = e.target.closest(".room-tab-del");
+    if (del) { e.stopPropagation(); deleteRoomEditor(del.dataset.delRoom); return; }
     const tab = e.target.closest(".room-tab-editor");
     if (tab) { switchRoom(tab.dataset.room); return; }
     const add = e.target.closest("#btn-room-add");
