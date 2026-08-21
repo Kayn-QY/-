@@ -180,6 +180,7 @@ thead th{
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .date-col.today{background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent}
+.date-col.today .wd{color:rgba(255,255,255,.92)}
 /* 周导航 */
 .week-nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .week-btn{
@@ -248,14 +249,20 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .hero-remind{width:100%}
 }
 @media (max-width:640px){
-  .hero-body{padding:28px 20px}
-  .hero-inner{padding:0}
+  .hero-body{padding:28px 14px}
+  .hero-inner{padding:0;width:100%}
+  .hero h1{font-size:clamp(46px,18.4vw,69px)}
   .hero-remind{padding:14px 14px}
   .hero-remind-item{padding:5px 8px}
-  .glass-card{padding:18px 14px;border-radius:20px}
-  .head-right{justify-content:flex-start;width:100%}
-  .sheet-bar{max-width:100%}
-  .right-scroll .right-table{min-width:700px}
+  .glass-card{padding:18px 14px;border-radius:20px;width:100%}
+  .head-right{flex-direction:column;align-items:stretch;justify-content:flex-start;width:100%;gap:10px}
+  .week-nav{display:none}
+  .sheet-bar{max-width:100%;flex-wrap:wrap}
+  .left-panel{width:123px}
+  .left-panel th.col-slot,.slot-col{width:55px!important}
+  .left-panel th.col-role,.role-col{width:58px!important}
+  .right-scroll .right-table{min-width:0;width:100%}
+  .hidden-d{display:none!important}
 }
 """
 
@@ -302,13 +309,14 @@ function renderAllTables(){
   if (active) switchRoom(active);
   var lbl = document.getElementById("week-label");
   if (lbl) lbl.textContent = weekLabel();
+  applyMobileView();
 }
 
 function buildRoomTable(room){
   var dates = displayDatesFor();
   var data = SCHEDULE[room] || {};
   var today = todayISO();
-  var dateHeader = dates.map(function(d){ return '<th class="date-col' + (d === today ? " today" : "") + '">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
+  var dateHeader = dates.map(function(d){ return '<th class="date-col' + (d === today ? " today" : "") + '" data-d="' + d + '">' + fmtD(d) + '<span class="wd">' + weekOf(d) + '</span></th>'; }).join("");
   var leftRows = [];
   var rightRows = [];
   SLOT_ORDER_JS.forEach(function(slot){
@@ -323,9 +331,9 @@ function buildRoomTable(room){
           if (rk === "anchor") cls = "cell anchor";
           else if (rk === "car") cls = "cell car";
           else if (rk === "time") cls = "cell time";
-          cells += '<td class="' + cls + '">' + esc(val) + '</td>';
+          cells += '<td class="' + cls + '" data-d="' + d + '">' + esc(val) + '</td>';
         } else {
-          cells += '<td class="cell empty">·</td>';
+          cells += '<td class="cell empty" data-d="' + d + '">·</td>';
         }
       });
       var rowLabel = rk === "time" ? '<span class="slot-badge">' + slot + '</span>' : "";
@@ -440,7 +448,7 @@ function renderHtml(updatedAt){
   var remindList = buildRemind();
   var h = "";
   h += '<!DOCTYPE html>\n';
-  h += '<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n';
+  h += '<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">\n';
   h += '<title>极氪日播间排班 · 多直播间</title>\n';
   h += '<link rel="preconnect" href="https://fonts.googleapis.com">\n';
   h += '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n';
@@ -517,6 +525,18 @@ function addRoom(){
     .catch(function(e){ alert("新增失败: " + e.message); });
 }
 
+function applyMobileView(){
+  var mobile = window.matchMedia && window.matchMedia("(max-width:640px)").matches;
+  var todayD = "";
+  document.querySelectorAll(".right-table th.date-col").forEach(function(t){
+    if (t.classList.contains("today")) todayD = t.getAttribute("data-d");
+  });
+  document.querySelectorAll(".right-table th.date-col, .right-table td.cell").forEach(function(el){
+    var isToday = el.classList.contains("today") || (el.tagName === "TD" && el.getAttribute("data-d") === todayD);
+    el.classList.toggle("hidden-d", mobile && !isToday);
+  });
+}
+
 function initRoomPage(){
   document.addEventListener("click", function(e){
     var tab = e.target.closest(".sheet-tab");
@@ -526,6 +546,8 @@ function initRoomPage(){
   if (pw) pw.addEventListener("click", function(){ shiftWeek(-1); });
   var nw = document.getElementById("btn-next-week");
   if (nw) nw.addEventListener("click", function(){ shiftWeek(1); });
+  applyMobileView();
+  if (!window.__mvBound) { window.__mvBound = true; window.addEventListener("resize", applyMobileView); }
   updateRemind();
   setInterval(updateRemind, 30000);
 }
@@ -750,7 +772,7 @@ def render_html(schedule, cfg):
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>极氪日播间排班 · 多直播间</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

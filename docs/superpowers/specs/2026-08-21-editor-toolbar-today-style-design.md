@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 9d4a1ded685a81c80cf27c0c57895e9b_20dfa4f79d2111f19046525400287e28
+    ReservedCode1: r/jQ191wUFQpeOXN3Wao8sbpITbODQ+E2tnWABQVLn5LTMtrl+ggSuNt4jWFlzL0rXmDO4jUHztsWq+KzvK9FtmkyyPXXpC2YVuP11Z62gO6mtUTXLVyZ7fmWn7TgDmsWeR9xTNMzU2pkH9qJSa3xACxDUX5u0QqBGzpWfWOS2lAB4Bkuxq2Fm6JdSY=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 9d4a1ded685a81c80cf27c0c57895e9b_20dfa4f79d2111f19046525400287e28
+    ReservedCode2: r/jQ191wUFQpeOXN3Wao8sbpITbODQ+E2tnWABQVLn5LTMtrl+ggSuNt4jWFlzL0rXmDO4jUHztsWq+KzvK9FtmkyyPXXpC2YVuP11Z62gO6mtUTXLVyZ7fmWn7TgDmsWeR9xTNMzU2pkH9qJSa3xACxDUX5u0QqBGzpWfWOS2lAB4Bkuxq2Fm6JdSY=
+---
+
 # 2026-08-21 编辑页工具栏与今日列样式调整设计
 
 ## 背景
@@ -51,3 +62,4 @@
 
 - 删除按钮 HTML 后若事件绑定残留会导致 `$("btn-paste-ocr")` 为 null 报错，必须同步移除绑定（本方案已覆盖）。
 - 展示页与编辑页三处 CSS 需保持同步，脚本替换后 grep 复核。
+*（内容由AI生成，仅供参考）*
