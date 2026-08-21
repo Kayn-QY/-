@@ -1292,32 +1292,25 @@ function parseDateInput(s){
   if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
   return null;
 }
-// ---------- 复制粘贴自动解析 ----------
+// ---------- 复制粘贴自动解析（多行表格，按列匹配当前周） ----------
 const PASTE_STOPWORDS = new Set(["主播","直播","开播","时间","车型","场次","备注","开始","结束","上午","下午","晚上","早上","中午","房间","直播间","排班","星期","周"]);
 const ROOM_MARKERS = ["问我我","猎装","9X","8X","7X"];
-function findDateInText(text){
-  let m = text.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
-  m = text.match(/(\d{1,2})月(\d{1,2})[日号]?/);
-  if (m) return new Date(new Date().getFullYear(), +m[1]-1, +m[2]);
-  m = text.match(/(^|[^\d])(\d{1,2})[-/.](\d{1,2})([^\d]|$)/);
-  if (m) return new Date(new Date().getFullYear(), +m[2]-1, +m[3]);
-  return null;
+function extractTime(s){
+  const t = String(s == null ? "" : s);
+  let m = t.match(/(\d{1,2}):(\d{2})\s*[-~至到]\s*(\d{1,2}):(\d{2})/);
+  if (m) return `${m[1]}:${m[2]}-${m[3]}:${m[4]}`;
+  m = t.match(/(\d{1,2}):(\d{2})/);
+  if (m) return `${m[1]}:${m[2]}`;
+  return "";
 }
-function findTimeRanges(text){
-  const re = /(\d{1,2}):(\d{2})\s*[-~至到]\s*(\d{1,2}):(\d{2})|(\d{1,2}):(\d{2})/g;
-  const out = [];
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    if (m[1] !== undefined) out.push({ time: `${m[1]}:${m[2]}-${m[3]}:${m[4]}`, pos: m.index, len: m[0].length });
-    else out.push({ time: `${m[5]}:${m[6]}`, pos: m.index, len: m[0].length });
-  }
-  return out;
+function extractCar(s){
+  const t = String(s == null ? "" : s).trim().toLowerCase();
+  return ROOM_MARKERS.find(rm => t.includes(rm.toLowerCase())) || "";
 }
-function pickName(s){
-  const re = /([\u4e00-\u9fa5]{2,4})/g;
+function extractName(s){
+  const re = /([\u4e00-\u9fa5·]{2,4})/g;
   let m;
-  while ((m = re.exec(s)) !== null) {
+  while ((m = re.exec(String(s))) !== null) {
     const w = m[1];
     if (PASTE_STOPWORDS.has(w)) continue;
     if (/\d/.test(w)) continue;
@@ -1325,43 +1318,76 @@ function pickName(s){
   }
   return "";
 }
-function extractAnchor(seg){
-  for (const rm of ROOM_MARKERS) {
-    const idx = seg.indexOf(rm);
-    if (idx >= 0) {
-      const name = pickName(seg.slice(idx + rm.length));
-      if (name) return name;
-    }
-  }
-  return pickName(seg);
+function splitRowCells(line){
+  if (line.includes("\t")) return line.split("\t").map(c => c.trim());
+  return line.split(/[,，、]|\s{2,}/).map(c => c.trim()).filter(c => c !== "");
 }
-function parsePasteText(text){
-  const date = findDateInText(text);
-  const times = findTimeRanges(text);
-  const entries = [];
-  if (!times.length) return { ok: false, reason: "未识别到任何时间区间（如 10:00-12:00）", date: null, entries };
-  times.forEach((t, i) => {
-    const segStart = t.pos + t.len;
-    const segEnd = i + 1 < times.length ? times[i+1].pos : text.length;
-    const seg = text.slice(segStart, segEnd);
-    const anchor = extractAnchor(seg);
-    entries.push({
-      time: t.time,
-      anchor,
-      raw: seg.trim().replace(/\s+/g, " ").slice(0, 30),
-      ok: true
-    });
+function rowKind(row){
+  const cells = splitRowCells(row);
+  if (!cells.length) return "empty";
+  let timeN = 0, carN = 0, nameN = 0;
+  cells.forEach(c => {
+    if (extractTime(c)) timeN++;
+    if (extractCar(c)) carN++;
+    if (extractName(c)) nameN++;
   });
-  return { ok: true, reason: "", date, entries };
+  const n = cells.length;
+  if (timeN === n) return "time";
+  if (carN === n) return "car";
+  if (nameN === n) return "anchor";
+  if (timeN * 2 >= n && timeN >= carN && timeN >= nameN) return "time";
+  if (carN * 2 >= n && carN >= timeN && carN >= nameN) return "car";
+  if (nameN * 2 >= n && nameN >= timeN && nameN >= carN) return "anchor";
+  return "unknown";
+}
+function slotByStart(timeStr){
+  const m = String(timeStr || "").match(/(\d{1,2}):\d{2}/);
+  if (!m) return "";
+  const h = parseInt(m[1]);
+  if (h <= 10) return SLOT_ORDER[0];   // 10:00 第1场
+  if (h <= 12) return SLOT_ORDER[1];   // 12:00 第2场
+  if (h <= 14) return SLOT_ORDER[2];   // 14:00/14:30 第3场
+  if (h <= 17) return SLOT_ORDER[3];   // 16:00/17:00 第4场
+  if (h <= 19) return SLOT_ORDER[4];   // 18:00/19:30 第5场
+  return SLOT_ORDER[5];                 // 20:00 第6场
+}
+function parseTableText(text){
+  const lines = String(text || "").split("\n").map(l => l.trim()).filter(l => l);
+  let timeRow = "", carRow = "", anchorRow = "";
+  lines.forEach(line => {
+    const kind = rowKind(line);
+    if (kind === "time" && !timeRow) timeRow = line;
+    else if (kind === "car" && !carRow) carRow = line;
+    else if (kind === "anchor" && !anchorRow) anchorRow = line;
+  });
+  if (!timeRow) return { ok: false, reason: "未识别到时间行（需包含如 20:00-22:00 的时间区间）" };
+  const timeCells = splitRowCells(timeRow);
+  const carCells = carRow ? splitRowCells(carRow) : [];
+  const anchorCells = anchorRow ? splitRowCells(anchorRow) : [];
+  const colCount = Math.max(timeCells.length, carCells.length, anchorCells.length);
+  const columns = [];
+  let ignoredCount = 0;
+  for (let i = 0; i < colCount; i++) {
+    const time = extractTime(timeCells[i]);
+    if (!time) continue;
+    const date = i < displayDates.length ? displayDates[i] : null;
+    if (!date) { ignoredCount++; continue; }
+    const slot = slotByStart(time);
+    const car = extractCar(carCells[i]) || currentRoom;
+    const anchor = extractName(anchorCells[i]);
+    columns.push({ date, time, slot, car, anchor });
+  }
+  if (!columns.length) return { ok: false, reason: "时间行未匹配到当前表中的日期列，已全部忽略" };
+  return { ok: true, columns, ignoredCount };
 }
 function openPasteModal(){
   const overlay = document.createElement("div");
   overlay.className = "paste-overlay";
   overlay.innerHTML = `
-    <div class="paste-box">
+    <div class="paste-box" style="width:min(760px,94vw)">
       <h3>复制粘贴排班</h3>
-      <p class="paste-desc">粘贴排班文字（自动识别日期 / 时间区间 / 主播名，按时间顺序写入第 1 场起）。直播间以当前选中「${escapeHtml(currentRoom)}」为准，文字中的直播间标识忽略；主播取紧跟直播间后的第一个名字，其余忽略。</p>
-      <textarea id="paste-text" placeholder="示例：&#10;8月17日 7X&#10;10:00-12:00 李润霞&#10;12:00-14:00 曹晶晶&#10;14:00-16:00 鲁向阳"></textarea>
+      <p class="paste-desc">粘贴多行表格（每行一个字段，每列对应一天，从左到右依次匹配当前周周一至周五）。支持时间行 / 车型行 / 主播行，自动按开始时间归入场次；不在当前表中的日期列自动忽略，已填场次不覆盖。</p>
+      <textarea id="paste-text" placeholder="示例：&#10;20:00-22:00\t20:00-22:00\t19:00-22:00\t20:00-22:00\t20:00-22:00&#10;7X\t7X\t7X\t7X\t7X&#10;费紫阳\t费紫阳\t费紫阳\t费紫阳\t费紫阳"></textarea>
       <div class="paste-actions">
         <button class="btn-primary2" id="paste-parse-btn">解析预览</button>
         <button class="btn-outline" id="paste-cancel-btn">取消</button>
@@ -1372,19 +1398,28 @@ function openPasteModal(){
   overlay.querySelector("#paste-cancel-btn").addEventListener("click", () => overlay.remove());
   overlay.querySelector("#paste-parse-btn").addEventListener("click", () => {
     const text = overlay.querySelector("#paste-text").value;
-    const result = parsePasteText(text);
+    const result = parseTableText(text);
     const box = overlay.querySelector("#paste-preview");
     if (!result.ok) {
       box.innerHTML = `<div class="no-date">${escapeHtml(result.reason)}，请检查粘贴内容。</div>`;
       return;
     }
-    let html = "";
-    if (!result.date) html += '<div class="no-date">未识别到日期（将使用今天），如不符请手动添加日期列后重试。</div>';
-    const dateStr = result.date ? toISO(result.date) : "（未识别）";
-    html += `<div class="row"><span class="idx">目标日期</span><span class="tm">${escapeHtml(dateStr)}</span><span class="nm">直播间：${escapeHtml(currentRoom)}</span></div>`;
-    result.entries.forEach((e, i) => {
-      html += `<div class="row${e.ok && e.anchor ? "" : " err"}"><span class="idx">第${i+1}场</span><span class="tm">${escapeHtml(e.time)}</span><span class="nm">${escapeHtml(e.anchor || "未识别主播（标红）")}</span></div>`;
+    const ignored = result.ignoredCount;
+    let html = `<div style="font-size:12px;color:#0f1e3d;margin-bottom:8px;">共解析到 ${result.columns.length + ignored} 列：写入 ${result.columns.length} 列${ignored ? `，忽略不在表中的 ${ignored} 列` : ""}；直播间默认「${escapeHtml(currentRoom)}」。</div>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:rgba(15,30,61,.06)">`;
+    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">日期</th>`;
+    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">时间</th>`;
+    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">场次</th>`;
+    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">车型</th>`;
+    html += `<th style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">主播</th></tr></thead><tbody>`;
+    result.columns.forEach(c => {
+      html += `<tr><td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(fmtDate(c.date))}</td>`;
+      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.time)}</td>`;
+      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.slot)}</td>`;
+      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;">${escapeHtml(c.car)}</td>`;
+      html += `<td style="padding:5px 6px;border:1px solid rgba(15,30,61,.12);text-align:center;${c.anchor ? "" : "color:#c0392b;"}">${escapeHtml(c.anchor || "未识别")}</td></tr>`;
     });
+    html += `</tbody></table>`;
     html += `<div class="paste-actions"><button class="btn-primary2" id="paste-confirm-btn">确认写入并保存</button></div>`;
     box.innerHTML = html;
     box.querySelector("#paste-confirm-btn").addEventListener("click", () => {
@@ -1394,23 +1429,21 @@ function openPasteModal(){
   });
 }
 async function confirmPaste(result){
-  if (!result.date) { setStatus("未识别到日期，已取消写入", true); return; }
-  const iso = toISO(result.date);
-  if (!displayDates.includes(iso)) {
-    setStatus(`该日期 ${iso} 不在表中，已取消写入（暂不支持新增日期列）`, true);
-    return;
-  }
+  if (!result || !result.columns || !result.columns.length) { setStatus("没有可写入的数据，已取消", true); return; }
   if (!schedule[currentRoom]) schedule[currentRoom] = {};
-  if (!schedule[currentRoom][iso]) schedule[currentRoom][iso] = {};
-  result.entries.forEach((e, i) => {
-    const slot = SLOT_ORDER[i];
-    if (!slot) return;
-    const prev = schedule[currentRoom][iso][slot] || {};
-    schedule[currentRoom][iso][slot] = { time: e.time, car: prev.car || currentRoom, anchor: e.anchor };
+  result.columns.forEach(col => {
+    if (!schedule[currentRoom][col.date]) schedule[currentRoom][col.date] = {};
+    const prev = schedule[currentRoom][col.date][col.slot] || {};
+    schedule[currentRoom][col.date][col.slot] = {
+      time: prev.time || col.time,
+      car: prev.car || col.car,
+      anchor: prev.anchor || col.anchor
+    };
   });
   renderTable(); bindCells();
-  const hasErr = result.entries.some(e => !e.anchor);
-  setStatus(`已写入 ${iso} 共 ${result.entries.length} 场${hasErr ? "（部分主播未识别，可手动补充）" : ""}，正在保存并发布…`, hasErr);
+  const missing = result.columns.filter(c => !c.anchor).length;
+  const msg = `已写入 ${result.columns.length} 列${result.ignoredCount ? `（${result.ignoredCount} 列不在表中已忽略）` : ""}${missing ? "（部分主播未识别，可手动补充）" : ""}，正在保存并发布…`;
+  setStatus(msg, missing > 0 || result.ignoredCount > 0);
   await save();
 }
 
