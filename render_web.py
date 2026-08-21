@@ -179,7 +179,7 @@ thead th{
 .left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
-.date-col.today{background:linear-gradient(135deg, rgba(144,88,49,.18), rgba(192,122,74,.12));box-shadow:inset 0 0 0 1.5px rgba(144,88,49,.55)}
+.date-col.today{background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent}
 /* 周导航 */
 .week-nav{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .week-btn{

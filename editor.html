@@ -130,7 +130,7 @@ thead th{
 .left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:104px;color:var(--text-main);font-weight:500}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
-.date-col.today{background:linear-gradient(135deg, rgba(144,88,49,.18), rgba(192,122,74,.12));box-shadow:inset 0 0 0 1.5px rgba(144,88,49,.55)}
+.date-col.today{background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent}
 .date-col.selected{background:linear-gradient(135deg, rgba(10,27,51,.14), rgba(30,58,95,.1));box-shadow:inset 0 0 0 1.5px rgba(10,27,51,.6)}
 td.col-selected{background:rgba(10,27,51,.08);box-shadow:inset 0 0 0 1px rgba(10,27,51,.35)}
 td{
@@ -247,9 +247,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
         <button class="btn-outline" id="btn-prev-week">上周</button>
         <span class="week-label" id="week-label"></span>
         <button class="btn-outline" id="btn-next-week">下周</button>
-        <button class="btn-outline" id="btn-clear-date">清除选定日期</button>
-        <button class="btn-danger" id="btn-clear-all">清除全部</button>
-        <button class="btn-outline" id="btn-paste-ocr">粘贴截图</button>
+        <button class="btn-outline" id="btn-clear-all">清除全部</button>
         <button class="btn-outline" id="btn-paste-parse">复制粘贴</button>
         <button class="btn-primary2" id="btn-save">保存并发布</button>
       </div>
@@ -271,7 +269,7 @@ td.cell.empty{color:rgba(31,44,68,.25)}
           </table>
         </div>
       </div>
-      <div class="board-note">点击日期表头可选中该列（高亮） · 「清除选定日期」清空选中日期列（当前直播间） · 「清除全部」清空当前直播间全部数据</div>
+      <div class="board-note">点击日期表头可选中该列（高亮） · 「清除全部」清空当前直播间全部数据</div>
     </div>
   </section>
 
@@ -953,7 +951,7 @@ thead th{
 .left-panel thead th{background:rgba(244,248,255,.98)}
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
-.date-col.today{background:linear-gradient(135deg, #905831, #c07a4a);color:#fff;border-color:transparent}
+.date-col.today{background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent}
 .date-col.today .wd{color:rgba(255,255,255,.85)}
 .slot-col{width:92px;color:#334155;font-weight:500}
 .role-col{width:96px;color:var(--text-muted);font-size:11.5px;font-weight:500}
@@ -1744,10 +1742,8 @@ function init(){
   $("btn-prev-week").addEventListener("click", () => shiftWeek(-1));
   $("btn-next-week").addEventListener("click", () => shiftWeek(1));
   $("btn-save").addEventListener("click", save);
-  $("btn-clear-date").addEventListener("click", clearSelectedDate);
   $("btn-clear-all").addEventListener("click", clearAll);
   $("btn-paste-parse").addEventListener("click", openPasteModal);
-  $("btn-paste-ocr").addEventListener("click", openOcrModal);
   $("btn-token-save").addEventListener("click", () => {
     const t = $("token-input").value.trim();
     if (!t) { setStatus("Token 不能为空", true); return; }
