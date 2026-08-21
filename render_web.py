@@ -527,13 +527,19 @@ function addRoom(){
 
 function applyMobileView(){
   var mobile = window.matchMedia && window.matchMedia("(max-width:640px)").matches;
-  var todayD = "";
-  document.querySelectorAll(".right-table th.date-col").forEach(function(t){
-    if (t.classList.contains("today")) todayD = t.getAttribute("data-d");
-  });
-  document.querySelectorAll(".right-table th.date-col, .right-table td.cell").forEach(function(el){
-    var isToday = el.classList.contains("today") || (el.tagName === "TD" && el.getAttribute("data-d") === todayD);
-    el.classList.toggle("hidden-d", mobile && !isToday);
+  document.querySelectorAll(".room-table").forEach(function(rt){
+    var todayIdx = -1;
+    rt.querySelectorAll(".right-table thead th.date-col").forEach(function(t, i){
+      if (t.classList.contains("today")) todayIdx = i;
+    });
+    rt.querySelectorAll(".right-table thead th.date-col").forEach(function(t, i){
+      t.classList.toggle("hidden-d", mobile && i !== todayIdx);
+    });
+    rt.querySelectorAll(".right-table tbody tr").forEach(function(tr){
+      Array.prototype.forEach.call(tr.children, function(td, i){
+        td.classList.toggle("hidden-d", mobile && i !== todayIdx);
+      });
+    });
   });
 }
 
