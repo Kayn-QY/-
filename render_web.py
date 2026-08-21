@@ -156,9 +156,10 @@ body{
 /* 左面板：场次+角色固定，不随横向滚动移动，纵向与右侧一起滚动 */
 .left-panel{
   flex:0 0 auto;width:194px;position:sticky;left:0;z-index:5;align-self:stretch;
-  background:linear-gradient(150deg, rgba(244,248,255,.98), rgba(236,243,255,.96));
-  border-radius:16px;border:1px solid rgba(255,255,255,.8);
-  box-shadow:8px 0 16px -8px rgba(15,30,61,.22), 1px 0 0 rgba(15,30,61,.12);
+  background:rgba(255,255,255,.35);
+  backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);
+  border-radius:16px;border:1px solid rgba(255,255,255,.65);
+  box-shadow:0 4px 14px rgba(15,30,61,.06), inset 0 1px 0 rgba(255,255,255,.6);
 }
 .left-panel .left-table{width:100%;border-collapse:separate;border-spacing:6px;font-size:12.5px;table-layout:fixed}
 /* 右侧：日期表横向滚动容器 */
@@ -176,7 +177,7 @@ thead th{
   box-shadow:inset 0 1px 0 #fff;color:#1f2c44;font-weight:600;padding:10px 8px;white-space:nowrap;text-align:center;
   height:56px;vertical-align:middle;
 }
-.left-panel thead th{background:rgba(244,248,255,.98)}
+.left-panel thead th{background:rgba(255,255,255,.55)}
 .date-col{width:96px;font-weight:600}
 .date-col .wd{display:block;font-size:10px;color:var(--text-muted);font-weight:400;margin-top:2px}
 .date-col.today{background:linear-gradient(135deg, #0a1b33, #1e3a5f);color:#fff;border-color:transparent}
@@ -258,11 +259,16 @@ tbody tr:hover td{background:rgba(255,255,255,.72)}
   .head-right{flex-direction:column;align-items:stretch;justify-content:flex-start;width:100%;gap:10px}
   .week-nav{display:none}
   .sheet-bar{max-width:100%;flex-wrap:wrap}
-  .left-panel{width:136px}
+  .schedule-wrap{display:flex;gap:10px}
+  .left-panel{flex:0 0 calc(50% - 5px);width:calc(50% - 5px);min-width:0}
+  .right-scroll{flex:0 0 calc(50% - 5px);width:calc(50% - 5px);min-width:0}
   .left-panel th.col-slot,.slot-col{width:58px!important}
-  .left-panel th.col-role,.role-col{width:72px!important}
-  .date-col{width:72px!important}
-  .right-scroll .right-table{min-width:0;width:auto}
+  .left-panel th.col-role,.role-col{width:84px!important;font-size:11.5px;padding:4px 2px;white-space:nowrap;overflow:hidden}
+  .date-col{width:100%!important}
+  .date-col .d-top{font-size:11px;white-space:nowrap}
+  .date-col .d-sub{font-size:9px;white-space:nowrap}
+  .right-scroll .right-table{min-width:0;width:100%}
+  .right-scroll td.time-cell{font-size:10px;padding:2px 1px;white-space:nowrap;overflow:hidden}
   .hidden-d{display:none!important}
 }
 """
