@@ -385,6 +385,35 @@ function clockMin(t){
   var m = String(t).match(/^(\d{1,2}):(\d{2})/);
   return m ? (+m[1]) * 60 + (+m[2]) : -1;
 }
+function clockEndMin(t){
+  var m = String(t).match(/-(\d{1,2}):(\d{2})/);
+  return m ? (+m[1]) * 60 + (+m[2]) : -1;
+}
+/* 正在直播的场次；返回 null 表示当前无正在直播场次。off=true 表示其下一场 slot 无排班 */
+function currentLive(room){
+  var data = SCHEDULE[room] || {};
+  var now = bjNow();
+  var day = data[todayISO()];
+  if (!day || typeof day !== "object") return null;
+  for (var j = 0; j < SLOT_ORDER_JS.length; j++){
+    var slot = SLOT_ORDER_JS[j];
+    var info = day[slot] || {};
+    var start = clockMin(info.time);
+    var end = clockEndMin(info.time);
+    if (start < 0 || end < 0) continue;
+    var s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(start / 60), start % 60);
+    var e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(end / 60), end % 60);
+    if (now >= s && now < e){
+      var off = true;
+      if (j + 1 < SLOT_ORDER_JS.length){
+        var nx = day[SLOT_ORDER_JS[j + 1]] || {};
+        if (clockMin(nx.time) >= 0) off = false;
+      }
+      return { slot: slot, time: info.time, anchor: (info.anchor || "").trim(), end: e, off: off };
+    }
+  }
+  return null;
+}
 /* 未来最近一场：当天无剩余场次自动取之后最近一天首场 */
 function nextRemind(room){
   var data = SCHEDULE[room] || {};
@@ -419,6 +448,18 @@ function countdownText(start){
 function buildRemind(){
   var items = [];
   ROOMS.forEach(function(room){
+    var live = currentLive(room);
+    if (live && live.off){
+      var cdMin = Math.round((live.end - bjNow()) / 60000);
+      var cd = cdMin < 1 ? "即将下播" : cdMin + "分钟后下播";
+      var st = live.slot + " " + live.time;
+      if (live.anchor){
+        items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name">' + esc(live.anchor) + '</span></div><span class="hero-remind-time">' + cd + '</span></div>');
+      } else {
+        items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name off">无人播</span></div><span class="hero-remind-time">' + cd + '</span></div>');
+      }
+      return;
+    }
     var b = nextRemind(room);
     if (!b){
       items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">暂无排班</span><span class="hero-remind-name off">暂无数据</span></div><span class="hero-remind-time">—</span></div>');
@@ -680,6 +721,33 @@ def build_remind_html(schedule, rooms):
         m = re.match(r"^(\d{1,2}):(\d{2})", str(t or "").strip())
         return int(m.group(1)) * 60 + int(m.group(2)) if m else -1
 
+    def clock_end_min(t):
+        m = re.search(r"-(\d{1,2}):(\d{2})", str(t or "").strip())
+        return int(m.group(1)) * 60 + int(m.group(2)) if m else -1
+
+    def current_live(room):
+        """正在直播的场次；返回 None 表示当前无正在直播场次。off=True 表示其下一场 slot 无排班"""
+        data = schedule.get(room, {})
+        day = data.get(now_bj.strftime("%Y-%m-%d"))
+        if not isinstance(day, dict):
+            return None
+        for j, slot in enumerate(SLOT_ORDER):
+            info = day.get(slot) or {}
+            start = clock_min(info.get("time", ""))
+            end = clock_end_min(info.get("time", ""))
+            if start < 0 or end < 0:
+                continue
+            s = now_bj.replace(hour=start // 60, minute=start % 60, second=0, microsecond=0)
+            e = now_bj.replace(hour=end // 60, minute=end % 60, second=0, microsecond=0)
+            if s <= now_bj < e:
+                off = True
+                if j + 1 < len(SLOT_ORDER):
+                    nx = day.get(SLOT_ORDER[j + 1]) or {}
+                    if clock_min(nx.get("time", "")) >= 0:
+                        off = False
+                return {"slot": slot, "time": info.get("time", ""), "anchor": (info.get("anchor") or "").strip(), "end": e, "off": off}
+        return None
+
     def countdown_text(start):
         diff_min = int(round((start - now_bj).total_seconds() / 60))
         if diff_min < 1:
@@ -695,6 +763,26 @@ def build_remind_html(schedule, rooms):
 
     items = []
     for room in rooms:
+        live = current_live(room)
+        if live and live["off"]:
+            diff_min = int(round((live["end"] - now_bj).total_seconds() / 60))
+            cd = "即将下播" if diff_min < 1 else f"{diff_min}分钟后下播"
+            st = live["slot"] + " " + live["time"]
+            if live["anchor"]:
+                items.append(
+                    f'<div class="hero-remind-item"><span class="hero-remind-room">{room}</span>'
+                    f'<div class="hero-remind-info"><span class="hero-remind-slot">{st}</span>'
+                    f'<span class="hero-remind-name">{live["anchor"]}</span></div>'
+                    f'<span class="hero-remind-time">{cd}</span></div>'
+                )
+            else:
+                items.append(
+                    f'<div class="hero-remind-item"><span class="hero-remind-room">{room}</span>'
+                    f'<div class="hero-remind-info"><span class="hero-remind-slot">{st}</span>'
+                    f'<span class="hero-remind-name off">无人播</span></div>'
+                    f'<span class="hero-remind-time">{cd}</span></div>'
+                )
+            continue
         data = schedule.get(room, {})
         best = None
         for d in sorted(data.keys()):

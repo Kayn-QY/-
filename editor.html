@@ -424,6 +424,35 @@ function clockMin(t){
   var m = String(t).match(/^(\d{1,2}):(\d{2})/);
   return m ? (+m[1]) * 60 + (+m[2]) : -1;
 }
+function clockEndMin(t){
+  var m = String(t).match(/-(\d{1,2}):(\d{2})/);
+  return m ? (+m[1]) * 60 + (+m[2]) : -1;
+}
+/* 正在直播的场次；返回 null 表示当前无正在直播场次。off=true 表示其下一场 slot 无排班 */
+function currentLive(room){
+  var data = SCHEDULE[room] || {};
+  var now = bjNow();
+  var day = data[todayISO()];
+  if (!day || typeof day !== "object") return null;
+  for (var j = 0; j < SLOT_ORDER_JS.length; j++){
+    var slot = SLOT_ORDER_JS[j];
+    var info = day[slot] || {};
+    var start = clockMin(info.time);
+    var end = clockEndMin(info.time);
+    if (start < 0 || end < 0) continue;
+    var s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(start / 60), start % 60);
+    var e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(end / 60), end % 60);
+    if (now >= s && now < e){
+      var off = true;
+      if (j + 1 < SLOT_ORDER_JS.length){
+        var nx = day[SLOT_ORDER_JS[j + 1]] || {};
+        if (clockMin(nx.time) >= 0) off = false;
+      }
+      return { slot: slot, time: info.time, anchor: (info.anchor || "").trim(), end: e, off: off };
+    }
+  }
+  return null;
+}
 /* 未来最近一场：当天无剩余场次自动取之后最近一天首场 */
 function nextRemind(room){
   var data = SCHEDULE[room] || {};
@@ -458,6 +487,18 @@ function countdownText(start){
 function buildRemind(){
   var items = [];
   ROOMS.forEach(function(room){
+    var live = currentLive(room);
+    if (live && live.off){
+      var cdMin = Math.round((live.end - bjNow()) / 60000);
+      var cd = cdMin < 1 ? "即将下播" : cdMin + "分钟后下播";
+      var st = live.slot + " " + live.time;
+      if (live.anchor){
+        items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name">' + esc(live.anchor) + '</span></div><span class="hero-remind-time">' + cd + '</span></div>');
+      } else {
+        items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name off">无人播</span></div><span class="hero-remind-time">' + cd + '</span></div>');
+      }
+      return;
+    }
     var b = nextRemind(room);
     if (!b){
       items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">暂无排班</span><span class="hero-remind-name off">暂无数据</span></div><span class="hero-remind-time">—</span></div>');
@@ -1098,6 +1139,35 @@ function clockMin(t){
   const m = String(t).match(/^(\d{1,2}):(\d{2})/);
   return m ? (+m[1]) * 60 + (+m[2]) : -1;
 }
+function clockEndMin(t){
+  const m = String(t).match(/-(\d{1,2}):(\d{2})/);
+  return m ? (+m[1]) * 60 + (+m[2]) : -1;
+}
+/* 正在直播的场次；返回 null 表示当前无正在直播场次。off=true 表示其下一场 slot 无排班 */
+function currentLiveFor(room){
+  const data = schedule[room] || {};
+  const now = bjNow();
+  const day = data[todayISO()];
+  if (!day || typeof day !== "object") return null;
+  for (let j = 0; j < SLOT_ORDER.length; j++){
+    const slot = SLOT_ORDER[j];
+    const info = day[slot] || {};
+    const start = clockMin(info.time);
+    const end = clockEndMin(info.time);
+    if (start < 0 || end < 0) continue;
+    const s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(start / 60), start % 60);
+    const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(end / 60), end % 60);
+    if (now >= s && now < e){
+      let off = true;
+      if (j + 1 < SLOT_ORDER.length){
+        const nx = day[SLOT_ORDER[j + 1]] || {};
+        if (clockMin(nx.time) >= 0) off = false;
+      }
+      return { slot, time: info.time, anchor: (info.anchor || "").trim(), end: e, off };
+    }
+  }
+  return null;
+}
 /* 未来最近一场：当天无剩余场次自动取之后最近一天首场（与 render_web.py PAGE_JS nextRemind 一致） */
 function nextRemindFor(room){
   const data = schedule[room] || {};
@@ -1129,6 +1199,18 @@ function countdownText(start){
 function buildRemindHtml(){
   const items = [];
   rooms.forEach(room => {
+    const live = currentLiveFor(room);
+    if (live && live.off) {
+      const diffMin = Math.round((live.end - bjNow()) / 60000);
+      const cd = diffMin < 1 ? "即将下播" : `${diffMin}分钟后下播`;
+      const st = `${live.slot} ${live.time}`;
+      if (live.anchor) {
+        items.push(`<div class="hero-remind-item"><span class="hero-remind-room">${escapeHtml(room)}</span><div class="hero-remind-info"><span class="hero-remind-slot">${st}</span><span class="hero-remind-name">${escapeHtml(live.anchor)}</span></div><span class="hero-remind-time">${cd}</span></div>`);
+      } else {
+        items.push(`<div class="hero-remind-item"><span class="hero-remind-room">${escapeHtml(room)}</span><div class="hero-remind-info"><span class="hero-remind-slot">${st}</span><span class="hero-remind-name off">无人播</span></div><span class="hero-remind-time">${cd}</span></div>`);
+      }
+      return;
+    }
     const b = nextRemindFor(room);
     if (!b) {
       items.push(`<div class="hero-remind-item"><span class="hero-remind-room">${escapeHtml(room)}</span><div class="hero-remind-info"><span class="hero-remind-slot">暂无排班</span><span class="hero-remind-name off">暂无数据</span></div><span class="hero-remind-time">—</span></div>`);
