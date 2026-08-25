@@ -71,7 +71,7 @@ def normalize_schedule(schedule, cfg):
     """兼容旧结构（顶层为日期键）→ 迁移为 {room: {date: ...}} 多直播间结构"""
     if not schedule or not isinstance(schedule, dict):
         return {}
-    rooms = cfg.get("rooms") or ["7X", "8X", "9X", "猎装"]
+    rooms = cfg.get("rooms") or ["7X", "8X", "9X", "猎装", "售后"]
     # 顶层 key 与直播间名有交集 → 已是多直播间结构
     if any(r in schedule for r in rooms):
         return schedule

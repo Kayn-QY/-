@@ -26,7 +26,7 @@ ROLES = [
 SLOT_ORDER = ["第1场", "第2场", "第3场", "第4场", "第5场", "第6场"]
 MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"]
 SITE_TITLE = "极氪日播间排班"
-DEFAULT_ROOMS = ["7X", "8X", "9X", "猎装"]
+DEFAULT_ROOMS = ["7X", "8X", "9X", "猎装", "售后"]
 
 CSS_TEMPLATE = """
 :root{
@@ -628,7 +628,7 @@ def migrate_schedule(schedule):
     keys = list(schedule.keys())
     is_old = bool(keys) and any("-" in k for k in keys) and not any(k in DEFAULT_ROOMS for k in keys)
     if is_old:
-        return {"7X": schedule, "8X": {}, "9X": {}, "猎装": {}}
+        return {"7X": schedule, "8X": {}, "9X": {}, "猎装": {}, "售后": {}}
     result = dict(schedule)
     for r in DEFAULT_ROOMS:
         result.setdefault(r, {})
