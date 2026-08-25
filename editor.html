@@ -661,7 +661,7 @@ const ROLES = [
 ];
 const SLOT_ORDER = ["第1场","第2场","第3场","第4场","第5场","第6场"];
 const MARQUEE_ITEMS = ["Bilibili", "GitHub", "Vercel", "Figma", "Notion", "Slack"];
-const DEFAULT_ROOMS = ["7X","8X","9X","猎装"];
+const DEFAULT_ROOMS = ["7X","8X","9X","猎装","售后"];
 
 let schedule = {};
 let cfg = {};
@@ -696,10 +696,10 @@ function escapeHtml(s){
 function jsSafe(o){ return JSON.stringify(o).replace(/</g, "\\u003c"); }
 
 function migrateIfOld(data){
-  if (!data || typeof data !== "object") return { "7X": {}, "8X": {}, "9X": {}, "猎装": {} };
+  if (!data || typeof data !== "object") return { "7X": {}, "8X": {}, "9X": {}, "猎装": {}, "售后": {} };
   const keys = Object.keys(data);
   const isOld = keys.length > 0 && keys.some(k => String(k).includes("-")) && !keys.some(k => DEFAULT_ROOMS.includes(k));
-  if (isOld) return { "7X": data, "8X": {}, "9X": {}, "猎装": {} };
+  if (isOld) return { "7X": data, "8X": {}, "9X": {}, "猎装": {}, "售后": {} };
   const out = Object.assign({}, data);
   DEFAULT_ROOMS.forEach(r => { if (!out[r] || typeof out[r] !== "object") out[r] = {}; });
   return out;
@@ -722,7 +722,7 @@ async function loadData(){
     displayDates = weekDates(thisMonday());
     selectedDate = "";
   } catch (e) {
-    schedule = { "7X": {}, "8X": {}, "9X": {}, "猎装": {} };
+    schedule = { "7X": {}, "8X": {}, "9X": {}, "猎装": {}, "售后": {} };
     rooms = DEFAULT_ROOMS.slice();
     currentRoom = "7X";
     displayDates = [];
