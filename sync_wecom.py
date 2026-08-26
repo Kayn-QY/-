@@ -44,6 +44,26 @@ CN_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, 
 REST_WORDS = ("休息", "休", "不播", "停播", "放假", "无排班", "OFF", "off")
 YEAR = 2026
 
+# 标准场次时间槽: (开始小时, 场次序号)。第N场 = [开始小时, 开始小时+2)
+SLOTS = [(10, 1), (12, 2), (14, 3), (16, 4), (18, 5), (20, 6)]
+
+
+def slot_of_time(text):
+    """按开播开始时间归位到标准场次键(如 '第3场').
+
+    例如 14:30->第3场, 13:00->第2场; 不在任何槽内就就近归位;
+    无法解析时间时返回 None(由调用方兜底保留原标签).
+    """
+    m = re.match(r"\s*(\d{1,2}):(\d{2})", text or "")
+    if not m:
+        return None
+    m_min = int(m.group(1)) * 60 + int(m.group(2))
+    for start_h, idx in SLOTS:
+        if start_h * 60 <= m_min < (start_h + 2) * 60:
+            return f"第{idx}场"
+    best = min(SLOTS, key=lambda x: abs(m_min - x[0] * 60))
+    return f"第{best[1]}场"
+
 JS_EXTRACT = """() => {
   const sheets = window.SpreadsheetApp.workbook.worksheetManager.sheetList;
   const out = {};
@@ -172,7 +192,9 @@ def parse_sheet(sheet):
                 entry["car"] = car
             if anchor:
                 entry["anchor"] = anchor
-            result.setdefault(d, {})[sn] = entry
+            # 归位: 按开播开始时间映射到标准场次键(原表格标签仅作解析顺序参考)
+            slot_key = slot_of_time(entry["time"]) or sn
+            result.setdefault(d, {})[slot_key] = entry
     if not result:
         return None, "无有效场次数据"
     return result, None
@@ -309,6 +331,11 @@ def main():
         res, err = parse_sheet(sheet)
         if res:
             parsed[room] = res
+            if room == "售后":
+                # 售后场次车型强制填「售后」
+                for _dates in res.values():
+                    for _entry in _dates.values():
+                        _entry["car"] = "售后"
             print(f"      [OK] {sheet['name']} -> {room}: {len(res)} 天")
         else:
             skipped.append(f"{sheet['name']}({err})")
