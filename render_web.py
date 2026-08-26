@@ -449,9 +449,9 @@ function buildRemind(){
   var items = [];
   ROOMS.forEach(function(room){
     var live = currentLive(room);
-    if (live && live.off){
+    if (live){
       var cdMin = Math.round((live.end - bjNow()) / 60000);
-      var cd = cdMin < 1 ? "即将下播" : cdMin + "分钟后下播";
+      var cd = cdMin < 1 ? (live.off ? "即将下播" : "即将换播") : cdMin + "分钟后" + (live.off ? "下播" : "换播");
       var st = live.slot + " " + live.time;
       if (live.anchor){
         items.push('<div class="hero-remind-item"><span class="hero-remind-room">' + esc(room) + '</span><div class="hero-remind-info"><span class="hero-remind-slot">' + st + '</span><span class="hero-remind-name">' + esc(live.anchor) + '</span></div><span class="hero-remind-time">' + cd + '</span></div>');
@@ -764,9 +764,12 @@ def build_remind_html(schedule, rooms):
     items = []
     for room in rooms:
         live = current_live(room)
-        if live and live["off"]:
+        if live:
             diff_min = int(round((live["end"] - now_bj).total_seconds() / 60))
-            cd = "即将下播" if diff_min < 1 else f"{diff_min}分钟后下播"
+            if live["off"]:
+                cd = "即将下播" if diff_min < 1 else f"{diff_min}分钟后下播"
+            else:
+                cd = "即将换播" if diff_min < 1 else f"{diff_min}分钟后换播"
             st = live["slot"] + " " + live["time"]
             if live["anchor"]:
                 items.append(
