@@ -91,7 +91,7 @@ JS_EXTRACT = """() => {
         }
       }
     }
-    out[si] = {name: (s.name || ''), cells: cells};
+    out[si] = {name: ((s.name || (s.sheetProperties && s.sheetProperties.codeName)) || ''), cells: cells};
   }
   return out;
 }
@@ -251,50 +251,92 @@ def extract_all(cookie_path, headless=False):
             pass
         time.sleep(2)
         # 逐个点击 Sheet tab 触发数据加载
-        for nm in TAB_NAMES:
+        # 修复: click 失败时记录并整轮重试核心 tab, 防止静默吞错导致空表
+        # 末尾空表 tab(极氪x/TK-澳洲/极氪情报局)可能不在 DOM 中, 点击失败不重试
+        CORE_TABS = TAB_NAMES[:6]
+        for attempt in range(2):
+            missing = []
+            for nm in TAB_NAMES:
+                clicked = False
+                for _ in range(2):
+                    try:
+                        page.locator(f".tab-bar-item-title:has-text('{nm}')").first.click(timeout=8000)
+                        clicked = True
+                        break
+                    except Exception:
+                        time.sleep(1)
+                if not clicked and nm in CORE_TABS:
+                    missing.append(nm)
+                    continue
+                for _ in range(25):
+                    loaded = False
+                    try:
+                        loaded = page.evaluate(f"""() => {{
+                          const gn = (sh) => (sh && (sh.name || (sh.sheetProperties && sh.sheetProperties.codeName))) || '';
+                          const s = window.SpreadsheetApp.workbook.worksheetManager.sheetList;
+                          for (const sh of s) {{ if (gn(sh) === '{nm}' && sh.cellDataGrid && (sh.cellDataGrid._kK || []).length > 0) return true; }}
+                          return false;
+                        }}""")
+                    except Exception:
+                        pass
+                    if loaded:
+                        break
+                    time.sleep(2)
+            if not missing:
+                break
+            if attempt == 0:
+                time.sleep(3)
+        if missing:
+            print(f"[WARN] 以下核心 Sheet 未能加载数据: {missing}", file=sys.stderr)
+        # Ctrl+End 触发滚动加载剩余块
+        first = None
+        second = None
+        try:
+            page.keyboard.press("Control+End")
+            time.sleep(6)
+            first = page.evaluate(JS_EXTRACT)
+        except Exception:
+            pass
+        if first is not None:
             try:
-                page.locator(f".tab-bar-item-title:has-text('{nm}')").first.click(timeout=5000)
+                page.keyboard.press("Control+End")
+                time.sleep(4)
+                second = page.evaluate(JS_EXTRACT)
             except Exception:
                 pass
-            for _ in range(25):
-                loaded = False
-                try:
-                    loaded = page.evaluate(f"""() => {{
-                      const s = window.SpreadsheetApp.workbook.worksheetManager.sheetList;
-                      for (const sh of s) {{ if (sh && sh.name === '{nm}' && sh.cellDataGrid && (sh.cellDataGrid._kK || []).length > 0) return true; }}
-                      return false;
-                    }}""")
-                except Exception:
-                    pass
-                if loaded:
-                    break
-                time.sleep(2)
-        # Ctrl+End 触发滚动加载剩余块
-        page.keyboard.press("Control+End")
-        time.sleep(6)
-        first = page.evaluate(JS_EXTRACT)
-        page.keyboard.press("Control+End")
-        time.sleep(4)
-        second = page.evaluate(JS_EXTRACT)
-        browser.close()
+        try:
+            browser.close()
+        except Exception:
+            pass
+        if first is None:
+            raise RuntimeError("页面在滚动提取前已关闭, 提取失败")
     # 合并两次结果（按单元格坐标去重）
     merged = {}
     for src in (first, second):
+        if src is None:
+            continue
         for si, sheet in src.items():
             m = merged.setdefault(si, {"name": sheet["name"], "cells": {}})
             if not m["name"]:
                 m["name"] = sheet["name"]
             for c in sheet["cells"]:
                 m["cells"][(c["row"], c["col"])] = c["text"]
-    # 按 sheetList 索引顺序回填 name（懒加载时 name 可能缺失）
-    for si, v in merged.items():
-        try:
-            idx = int(si)
-        except (TypeError, ValueError):
-            idx = -1
-        if (not v["name"]) and 0 <= idx < len(TAB_NAMES):
-            v["name"] = TAB_NAMES[idx]
-    return {si: {"name": v["name"], "cells": [{"row": r, "col": c, "text": t} for (r, c), t in v["cells"].items()]} for si, v in merged.items()}
+    # 按真实名字映射（不再按 sheetList 索引用 TAB_NAMES 猜名回填）
+    # 名字来源: JS_EXTRACT 已优先从 sheetProperties.codeName 取真名(逐个点击激活后补齐)
+    unnamed = [si for si, v in merged.items() if not v["name"]]
+    if unnamed:
+        print(f"[WARN] 以下 Sheet 未取到名字(可能未成功激活): {unnamed}", file=sys.stderr)
+    result = {si: {"name": v["name"], "cells": [{"row": r, "col": c, "text": t} for (r, c), t in v["cells"].items()]} for si, v in merged.items()}
+    # 修复: 名字完整性校验——核心 6 个 Sheet 必须按真名识别, 否则中止,
+    # 防止 tab 顺序变化时静默错位(8X/9X 数据对调)
+    name_rooms = {v["name"] for v in result.values() if v["name"] in SHEET_ROOM}
+    if len(name_rooms) < 6:
+        raise RuntimeError(f"按名字映射异常: 仅识别到 {sorted(name_rooms)}, 无法可靠对齐直播间, 中止同步")
+    # 修复: 提取质量校验——非空 Sheet 过少说明懒加载失败, 中止避免用陈旧数据覆盖
+    nonempty = sum(1 for v in result.values() if v["name"] and v["cells"])
+    if nonempty < 6:
+        raise RuntimeError(f"提取质量异常: 仅 {nonempty} 个 Sheet 有数据, 疑似懒加载失败, 中止同步")
+    return result
 
 
 def git(cmd, cwd=BASE_DIR):
