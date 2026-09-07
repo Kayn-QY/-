@@ -631,6 +631,9 @@ function applyMobileView(){
 }
 
 function initRoomPage(){
+  // 打开/刷新页面时强制回到"本周"并重绘，避免停留在静态 HTML 生成的旧周
+  weekStart = mondayOf(bjNow());
+  renderAllTables();
   document.addEventListener("click", function(e){
     var tab = e.target.closest(".sheet-tab");
     if (tab) { switchRoom(tab.dataset.room); return; }
