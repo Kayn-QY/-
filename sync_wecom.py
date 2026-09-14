@@ -250,13 +250,48 @@ def extract_all(cookie_path, headless=False):
         except Exception:
             pass
         time.sleep(2)
-        # 逐个点击 Sheet tab 触发数据加载
-        # 修复: click 失败时记录并整轮重试核心 tab, 防止静默吞错导致空表
+        # 逐个点击 Sheet tab 触发数据加载, 并在激活时【立即提取该 sheet】
+        # 微文档前端改版后: 切换 tab 会释放非激活 sheet 的 cellDataGrid 数据,
+        # 若全部点击完再统一提取, 只能拿到最后激活的一个 sheet。改为激活期间即时提取。
         # 末尾空表 tab(极氪x/TK-澳洲/极氪情报局)可能不在 DOM 中, 点击失败不重试
+        EXTRACT_BY_NAME = """(nm) => {
+  const sheets = window.SpreadsheetApp.workbook.worksheetManager.sheetList;
+  const gn = (sh) => (sh && (sh.name || (sh.sheetProperties && sh.sheetProperties.codeName))) || '';
+  for (let si = 0; si < sheets.length; si++) {
+    const s = sheets[si];
+    if (!s || gn(s) !== nm || !s.cellDataGrid) continue;
+    const blocks = s.cellDataGrid._kK || [];
+    const cells = [];
+    for (let b1 = 0; b1 < blocks.length; b1++) {
+      const subs = blocks[b1];
+      for (let b2 = 0; b2 < (subs ? subs.length : 0); b2++) {
+        const sub = subs ? subs[b2] : null;
+        if (!sub || !sub._Ao) continue;
+        for (let r = 0; r < sub._Ao.length; r++) {
+          const rowCells = sub._Ao[r];
+          if (!rowCells) continue;
+          for (let c = 0; c < rowCells.length; c++) {
+            const cell = rowCells[c];
+            if (!cell) continue;
+            let txt = null;
+            try { if (cell.formattedValue && cell.formattedValue.value !== undefined) txt = cell.formattedValue.value; } catch(e) {}
+            if (txt === null || txt === undefined || txt === '') continue;
+            cells.push({row: b1*64+r, col: b2*32+c, text: String(txt)});
+          }
+        }
+      }
+    }
+    return {cells: cells};
+  }
+  return {cells: []};
+}"""
+        extracts = {}
         CORE_TABS = TAB_NAMES[:6]
         for attempt in range(2):
             missing = []
             for nm in TAB_NAMES:
+                if nm in extracts:
+                    continue
                 clicked = False
                 for _ in range(2):
                     try:
@@ -268,8 +303,11 @@ def extract_all(cookie_path, headless=False):
                 if not clicked and nm in CORE_TABS:
                     missing.append(nm)
                     continue
+                if not clicked:
+                    # 末尾可空 tab 不在 DOM 中, 静默跳过
+                    continue
+                loaded = False
                 for _ in range(25):
-                    loaded = False
                     try:
                         loaded = page.evaluate(f"""() => {{
                           const gn = (sh) => (sh && (sh.name || (sh.sheetProperties && sh.sheetProperties.codeName))) || '';
@@ -282,47 +320,41 @@ def extract_all(cookie_path, headless=False):
                     if loaded:
                         break
                     time.sleep(2)
+                if not loaded:
+                    if nm in CORE_TABS:
+                        missing.append(nm)
+                    continue
+                # 激活期间立即滚动触发剩余块加载并提取该 sheet
+                try:
+                    page.keyboard.press("Control+End")
+                    time.sleep(4)
+                except Exception:
+                    pass
+                try:
+                    got = page.evaluate(EXTRACT_BY_NAME, nm)
+                    extracts[nm] = got["cells"]
+                except Exception as e:
+                    if nm in CORE_TABS:
+                        missing.append(nm)
             if not missing:
                 break
             if attempt == 0:
                 time.sleep(3)
         if missing:
             print(f"[WARN] 以下核心 Sheet 未能加载数据: {missing}", file=sys.stderr)
-        # Ctrl+End 触发滚动加载剩余块
-        first = None
-        second = None
-        try:
-            page.keyboard.press("Control+End")
-            time.sleep(6)
-            first = page.evaluate(JS_EXTRACT)
-        except Exception:
-            pass
-        if first is not None:
-            try:
-                page.keyboard.press("Control+End")
-                time.sleep(4)
-                second = page.evaluate(JS_EXTRACT)
-            except Exception:
-                pass
         try:
             browser.close()
         except Exception:
             pass
-        if first is None:
-            raise RuntimeError("页面在滚动提取前已关闭, 提取失败")
-    # 合并两次结果（按单元格坐标去重）
+    # 按 TAB_NAMES 顺序整理(si 仅为遍历序, 直播间对齐靠 name)
     merged = {}
-    for src in (first, second):
-        if src is None:
+    for si, nm in enumerate(TAB_NAMES):
+        if nm not in extracts:
             continue
-        for si, sheet in src.items():
-            m = merged.setdefault(si, {"name": sheet["name"], "cells": {}})
-            if not m["name"]:
-                m["name"] = sheet["name"]
-            for c in sheet["cells"]:
-                m["cells"][(c["row"], c["col"])] = c["text"]
-    # 按真实名字映射（不再按 sheetList 索引用 TAB_NAMES 猜名回填）
-    # 名字来源: JS_EXTRACT 已优先从 sheetProperties.codeName 取真名(逐个点击激活后补齐)
+        cells = {}
+        for c in extracts[nm]:
+            cells[(c["row"], c["col"])] = c["text"]
+        merged[str(si)] = {"name": nm, "cells": cells}
     unnamed = [si for si, v in merged.items() if not v["name"]]
     if unnamed:
         print(f"[WARN] 以下 Sheet 未取到名字(可能未成功激活): {unnamed}", file=sys.stderr)
