@@ -23,6 +23,14 @@ from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SCHEDULE_PATH = os.path.join(BASE_DIR, "schedule.json")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+# git push 加固: 首次失败即回退 HTTP/1.1 + 重试 PUSH_RETRY 次, 仍失败写告警日志
+PUSH_RETRY = 2
+HTTP_POST_BUFFER = 524288000
+PUSH_FAIL_LOG = os.path.join(BASE_DIR, "push_failed.log")
+# 单实例锁 + 心跳(供看门狗 watch_sync.py 判断同步链路健康度)
+LOCK_PATH = os.path.join(BASE_DIR, "temp", "sync.lock")
+HEARTBEAT_PATH = os.path.join(BASE_DIR, "temp", "heartbeat.json")
+RUN_TIMEOUT = 900  # 单轮同步整体超时(秒), 防止卡死时长期持有锁
 COOKIE_DEFAULT = os.path.join(BASE_DIR, "temp", "wecom_cookie.txt")
 URL = "https://doc.weixin.qq.com/sheet/e3_AcQAxwZyAHkCN70BsWMPOStuFgj8i?scode=AHYAvAeeAAYSYD01NRAaYA_QYzAP8&tab=BB08J2"
 
@@ -375,6 +383,49 @@ def git(cmd, cwd=BASE_DIR):
     return subprocess.run(["git"] + cmd, cwd=cwd, capture_output=True, text=True)
 
 
+def acquire_single_lock():
+    """非阻塞抢单实例锁; 已有实例在跑则返回 None(避免看门狗补跑与定时任务撞车)"""
+    import fcntl
+    os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
+    fd = open(LOCK_PATH, "w")
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fd.close()
+        return None
+    try:
+        fd.write(str(os.getpid()))
+        fd.flush()
+    except Exception:
+        pass
+    return fd
+
+
+def write_heartbeat(status, detail=""):
+    """记录本轮运行结果: 成功刷新 last_success, 失败累加 failure_streak"""
+    prev = {}
+    try:
+        with open(HEARTBEAT_PATH) as f:
+            prev = json.load(f)
+    except Exception:
+        pass
+    now = datetime.now().isoformat(timespec="seconds")
+    data = {
+        "last_run": now,
+        "status": status,
+        "detail": detail,
+        "last_success": now if status == "ok" else prev.get("last_success"),
+        "failure_streak": 0 if status == "ok" else int(prev.get("failure_streak") or 0) + 1,
+    }
+    try:
+        tmp = HEARTBEAT_PATH + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, HEARTBEAT_PATH)
+    except Exception as e:
+        print(f"[WARN] 心跳写入失败: {e}", file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cookie", default=COOKIE_DEFAULT)
@@ -480,12 +531,65 @@ def main():
     if r.returncode != 0 and "nothing to commit" not in r.stdout + r.stderr:
         print(f"[FAIL] git commit: {r.stderr}")
         sys.exit(1)
-    r = git(["push", "origin", cfg.get("git", {}).get("branch", "main")])
-    if r.returncode != 0:
-        print(f"[FAIL] git push: {r.stderr}")
+    # 4.2 push: 失败自动回退 HTTP/1.1 并重试, 仍失败则落盘告警(避免静默失效)
+    branch = cfg.get("git", {}).get("branch", "main")
+    push_ok = False
+    last_err = ""
+    for attempt in range(1, PUSH_RETRY + 2):  # 首次 + PUSH_RETRY 次重试
+        r = git(["push", "origin", branch])
+        if r.returncode == 0:
+            push_ok = True
+            break
+        last_err = (r.stderr or r.stdout).strip().replace("\n", " | ")
+        print(f"[WARN] git push 第 {attempt} 次失败: {last_err}")
+        if attempt == 1:
+            # 亿格云安全终端会间歇性干扰 HTTP/2 大包传输, 首次失败即回退 HTTP/1.1
+            git(["config", "http.version", "HTTP/1.1"])
+            git(["config", "http.postBuffer", str(HTTP_POST_BUFFER)])
+            print("      [回退] 已切 http.version=HTTP/1.1 并调大 postBuffer, 5s 后重试")
+        time.sleep(5)
+    if not push_ok:
+        print(f"[FAIL] git push 连续 {PUSH_RETRY + 1} 次失败: {last_err}")
+        try:
+            with open(PUSH_FAIL_LOG, "a") as f:
+                f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} [FAIL] git push 连续 "
+                        f"{PUSH_RETRY + 1} 次失败 | branch={branch} | err={last_err}\n")
+            print(f"      告警已写入 {PUSH_FAIL_LOG}")
+        except Exception as e:
+            print(f"      [WARN] 告警落盘失败: {e}")
         sys.exit(1)
-    print("      已推送 GitHub")
+    if last_err:
+        print("      重试后已推送 GitHub")
+    else:
+        print("      已推送 GitHub")
 
 
 if __name__ == "__main__":
-    main()
+    _lock = acquire_single_lock()
+    if _lock is None:
+        # 退出码 3 = 撞车跳过(既非成功也非失败), 供看门狗区分, 不写心跳
+        print("[SKIP] 已有同步实例在运行, 本轮跳过")
+        sys.exit(3)
+
+    # 整体超时兜底: 页面/网络异常卡死时主动退出并释放锁, 避免看门狗永远拿不到锁
+    import signal
+
+    def _on_timeout(signum, frame):
+        raise TimeoutError(f"同步整体超时(>{RUN_TIMEOUT}s), 强制退出以释放单实例锁")
+
+    signal.signal(signal.SIGALRM, _on_timeout)
+    signal.alarm(RUN_TIMEOUT)
+
+    try:
+        main()
+    except SystemExit as e:
+        _code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        write_heartbeat("ok" if _code == 0 else "error", "" if _code == 0 else f"exit {_code}")
+        sys.exit(_code)
+    except Exception as e:
+        # 抓取/校验阶段异常: 记录失败心跳后原样抛出, 保留 traceback 与退出码
+        write_heartbeat("error", f"{type(e).__name__}: {e}")
+        raise
+    finally:
+        signal.alarm(0)
+    write_heartbeat("ok")
